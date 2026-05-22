@@ -20,7 +20,7 @@ export default function PatientDashboard({ route, navigation }) {
   const fiberAnim = useRef(new Animated.Value(0)).current;
 
   // 👉 REPLACE WITH YOUR HOTSPOT IP
-  const API_URL = "http://10.49.211.37:5000"; 
+  const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
   useEffect(() => { fetchMyData(); }, []);
 

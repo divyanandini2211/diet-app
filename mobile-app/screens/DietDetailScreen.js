@@ -24,7 +24,7 @@ export default function DietDetailScreen({ route, navigation }) {
   const [selectedSessionForFood, setSelectedSessionForFood] = useState(null);
   const [allFoods, setAllFoods] = useState([]);
   
-  const API_URL = "http://10.49.211.37:5000"; 
+  const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
   useEffect(() => {
     loadAvailableFoods();

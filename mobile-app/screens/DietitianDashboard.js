@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, 
 import axios from 'axios';
 
 // 👉 REPLACE WITH YOUR HOTSPOT/SERVER IP
-const API_URL = "http://10.49.211.37:5000"; 
+const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
 // The 'navigation' prop is essential for moving between screens.
 export default function DietitianDashboard({ route, navigation }) {

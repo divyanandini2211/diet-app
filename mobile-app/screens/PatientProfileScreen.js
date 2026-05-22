@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ActivityIndicator, Alert } from 'react-native';
 import axios from 'axios';
 
-const API_URL = 'http://10.49.211.37:5000';
+const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
 export default function PatientProfileScreen({ route, navigation }) {
   const { user } = route.params || {};

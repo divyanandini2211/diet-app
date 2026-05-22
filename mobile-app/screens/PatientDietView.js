@@ -9,7 +9,7 @@ import axios from 'axios';
 const { width } = Dimensions.get('window');
 
 // REPLACE WITH YOUR ACTUAL API URL
-const API_URL = 'http://10.49.211.37:5000'; 
+const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
 export default function PatientDietView({ route, navigation }) {
   // Patient ID is passed from DietDetailScreen or LoginScreen

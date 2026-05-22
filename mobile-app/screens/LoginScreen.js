@@ -17,7 +17,8 @@ export default function LoginScreen({ navigation }) {
   // REPLACE "192.168.1.X" WITH YOUR ACTUAL IPv4 ADDRESS FROM STEP 3!!!
 // I ADDED /api/auth TO THE END OF YOUR LINK!
 // Back to the easiest link!
-  const API_URL = 'http://10.49.211.37:5000/api/auth'; 
+ const API_URL = `${process.env.EXPO_PUBLIC_API_URL}/api/auth`;
+
 
   const handleSubmit = async () => {
     try {
