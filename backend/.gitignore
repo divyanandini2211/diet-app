@@ -1,0 +1,7 @@
+# Ignore environment variables
+.env
+
+# Ignore test scripts and images
+test-ai.js
+test-images/
+node_modules/
