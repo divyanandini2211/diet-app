@@ -111,7 +111,7 @@ STEP 2: DIETITIAN CREATES MEAL PLAN
 └─ Searches master food database OR adds custom foods
 └─ Specifies quantities and units
 └─ Sets restricted foods list
-└─ Saves plan → AI calculates total macros
+└─ Saves plan 
 
 STEP 3: PATIENT VIEWS ASSIGNED MEAL PLAN
 └─ Patient logs into app
@@ -126,9 +126,9 @@ STEP 4: PATIENT LOGS MEALS
    ├─ Detects food items
    ├─ Estimates portions
    ├─ Calculates all 5 macros
-   └─ Compares to prescribed plan
+   └─ Compares to daily goals
 └─ Log saved to database
-└─ Status determined: GOOD / WARNING / EXCEEDED
+gives feedback and sent to dietician as well
 
 STEP 5: PATIENT VIEWS DAILY PROGRESS
 └─ Dashboard shows remaining macros for today
@@ -144,7 +144,6 @@ STEP 6: DIETITIAN MONITORS PATIENT
    ├─ Food photo
    ├─ AI-detected items
    ├─ Target vs. actual macros (all 5)
-   ├─ Status badge (GOOD/WARNING/EXCEEDED)
    └─ AI feedback message
 └─ Can make adjustments to plan as needed
 ```
@@ -167,14 +166,6 @@ START: DietDetailScreen (Edit Plan Tab)
 │     ├─ Carbs Target (default: 250g)
 │     ├─ Fat Target (default: 65g)
 │     └─ Fiber Target (default: 30g)
-│
-├─ 3. DISPLAY RUNNING TOTALS (REAL-TIME)
-│  └─ Calculate from current meal plan:
-│     └─ Sum of all foods' macros
-│     └─ Show progress bars with color coding:
-│        ├─ 0-75% of goal = GREEN
-│        ├─ 75-100% of goal = YELLOW
-│        └─ >100% of goal = RED
 │
 ├─ 4. MANAGE MEALS (3 sessions)
 │  ├─ Breakfast (8:00 AM)

@@ -32,7 +32,7 @@ export default function LoginScreen({ navigation }) {
         if (userData.role === 'dietitian') {
           navigation.replace('DietitianDashboard', { user: userData }); 
         } else {
-          navigation.replace('PatientDashboard', { user: userData }); 
+          navigation.replace('PatientNavigation', { user: userData }); 
         }
 
       } else {
@@ -53,14 +53,14 @@ export default function LoginScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'undefined'}
         style={styles.container}
       >
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           
           {/* Professional Header */}
           <View style={styles.headerContainer}>
-            <Text style={styles.title}>Dietetics Portal</Text>
+            <Text style={styles.title}>OncoDiet</Text>
             <Text style={styles.subtitle}>Please authenticate to continue</Text>
           </View>
 

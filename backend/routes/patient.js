@@ -18,18 +18,7 @@ router.get('/my-diet/:patientId', async (req, res) => {
   }
 });
 
-// --- Route 2: Update Patient's Weight ---
-router.post('/update-weight', async (req, res) => {
-  try {
-    const { patientId, weight } = req.body;
-    await User.findByIdAndUpdate(patientId, { weight: weight });
-    res.json({ message: "Weight updated successfully" });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// --- Route 3: The Core Gemini AI Meal Analysis ---
+// --- Route 2: The Core Gemini AI Meal Analysis ---
 router.post('/:patientId/analyze-meal', async (req, res) => {
   try {
     const { patientId } = req.params;
@@ -42,32 +31,35 @@ router.post('/:patientId/analyze-meal', async (req, res) => {
     // 1. Fetch the patient's diet plan to get DAILY targets
     const dietPlan = await DietPlan.findOne({ patientId });
     if (!dietPlan) return res.status(404).json({ error: 'No diet plan found for this patient.' });
-
-    // Use daily goals, not per-meal targets
+    
     const dailyGoals = dietPlan.dailyGoals;
 
     // 2. Set up Google Gemini AI
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({ 
-        model: "gemini-pro-vision", // Vision model is required for images
+        model: "gemini-3.1-flash-lite", // Using the correct current model name
         generationConfig: { responseMimeType: "application/json" }
     });
    
     // 3. The Refined Prompt
     const prompt = `
-      You are an expert clinical dietitian AI. 
-      ⚠️ The user's RESTRICTED FOODS are: "${dietPlan.avoidables || "None"}".
+      You are the patient's personal, human clinical dietitian. Speak directly to the patient using "you" and "your". 
+      Tone: Warm, encouraging, but clinical and strict about restricted foods.
       
-      Look at the image of the meal the user ACTUALLY ate. Your tasks are:
-      1. Identify all food items in the image.
-      2. Estimate the nutritional content (calories, protein, carbs, fat, fiber) of the food in the image. This is the "actualMacros".
-      3. CRITICAL: Check if any food you identified is on the RESTRICTED FOODS list. If so, you MUST start your feedback with "🚨 WARNING:" and explain the issue.
+      ⚠️ RESTRICTED FOODS: "${dietPlan.avoidables || "None"}".
+      
+      CONTEXT: The patient eats traditional Indian home-cooked meals (e.g., puri, roti, dal, curries). DO NOT classify traditional home-cooked Indian foods as "bakery items" or "junk food". Evaluate them fairly based on their ingredients.
+      
+      Tasks:
+      1. Identify all food items in the meal.
+      2. Estimate the nutritional content (calories, protein, carbs, fat, fiber).
+      3. CRITICAL: If a food EXACTLY matches the restricted list, start your feedback with "🚨 WARNING:". Otherwise, give 2 sentences of encouraging feedback.
       
       Return ONLY a JSON object in this exact format:
       {
         "aiDetectedItems": ["food 1", "food 2"],
         "actualMacros": {"calories": 0, "protein": 0, "carbs": 0, "fat": 0, "fiber": 0},
-        "feedback": "Write 2-3 sentences of helpful feedback. Include the 🚨 WARNING here if they ate a restricted food."
+        "feedback": "Write human-like feedback here."
       }
     `;
 
@@ -83,20 +75,52 @@ router.post('/:patientId/analyze-meal', async (req, res) => {
     responseText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
     const aiResult = JSON.parse(responseText);
 
-    // 6. Save the complete log to the database
+    // 6. CALCULATE DAILY MATH & STATUS
+    const todayLogs = await DailyLog.find({ patientId, date });
+    
+    let caloriesEatenToday = 0;
+    todayLogs.forEach(log => {
+      if (log.actualMacros && log.actualMacros.calories) {
+        caloriesEatenToday += log.actualMacros.calories;
+      }
+    });
+
+    const newTotalCalories = caloriesEatenToday + aiResult.actualMacros.calories;
+
+    let status = "GOOD";
+    if (aiResult.feedback.includes("🚨 WARNING:")) {
+      status = "WARNING"; // AI noticed they ate a restricted food
+    } else if (newTotalCalories > dailyGoals.calorieTarget) {
+      status = "EXCEEDED"; // Pushed them over the daily limit
+    } else if (newTotalCalories > (dailyGoals.calorieTarget * 0.85)) {
+      status = "WARNING"; // Approaching limit (85%+)
+    }
+
+    // 7. Save the complete log to the database
     const newLog = new DailyLog({
       patientId,
       date,
       sessionName,
       imageUrl: `data:image/jpeg;base64,${imageBase64}`, 
       aiDetectedItems: aiResult.aiDetectedItems,
-      prescribedMacros: dailyGoals, // Store daily goals for reference
-      actualMacros: aiResult.actualMacros, // Saving the AI's estimate of the photo
+      
+      // ✅ FIXED: Mapping DietPlan target names to DailyLog schema names!
+      prescribedMacros: {
+        calories: dailyGoals.calorieTarget || 2000,
+        protein: dailyGoals.proteinTarget || 100,
+        carbs: dailyGoals.carbsTarget || 250,
+        fat: dailyGoals.fatTarget || 65,
+        fiber: dailyGoals.fiberTarget || 30
+      },
+
+      actualMacros: aiResult.actualMacros,
+      status: status, 
       feedback: aiResult.feedback
     });
+    
     await newLog.save();
 
-    // 7. Send the full log record back to the Mobile App
+    // 8. Send the full log record back to the Mobile App
     res.json(newLog);
 
   } catch (error) {
@@ -105,7 +129,7 @@ router.post('/:patientId/analyze-meal', async (req, res) => {
   }
 });
 
-// --- Route 4: Get all AI logs for a patient (for Dietitian's Monitor tab) ---
+// --- Route 3: Get all AI logs for a patient (Dietitian's Monitor tab) ---
 router.get('/:patientId/all-logs', async (req, res) => {
     try {
       const logs = await DailyLog.find({ patientId: req.params.patientId }).sort({ createdAt: -1 });
@@ -116,7 +140,7 @@ router.get('/:patientId/all-logs', async (req, res) => {
     }
 });
 
-// --- Route 5: Get today's logs for a patient (for remaining macros calculation) ---
+// --- Route 4: Get today's logs for a patient (Patient Dashboard) ---
 router.get('/:patientId/today-logs/:date', async (req, res) => {
     try {
       const { patientId, date } = req.params;
@@ -126,30 +150,6 @@ router.get('/:patientId/today-logs/:date', async (req, res) => {
       console.error(err);
       res.status(500).send('Server Error');
     }
-});
-
-// --- Route 6: Save simple meal log (patient manually entering quantities) ---
-router.post('/:patientId/log', async (req, res) => {
-  try {
-    const { patientId } = req.params;
-    const { sessionName, date, items } = req.body;
-
-    const newLog = new DailyLog({
-      patientId,
-      sessionName,
-      date,
-      aiDetectedItems: items.map(i => i.categoryName),
-      prescribedMacros: {},
-      actualMacros: {},
-      status: 'LOGGED',
-      feedback: 'Manual log entry by patient'
-    });
-
-    await newLog.save();
-    res.json({ message: 'Meal logged successfully', log: newLog });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
 });
 
 module.exports = router;

@@ -113,7 +113,7 @@ export default function PatientDietView({ route, navigation }) {
         {/* TOP GREETING HEADER */}
         <View style={styles.topHeader}>
           <View>
-            <Text style={styles.greetingText}>Hello Patient,</Text>
+            <Text style={styles.greetingText}>Hello ,</Text>
             <Text style={styles.subGreeting}>Track your meals to build your streak!</Text>
           </View>
         </View>
