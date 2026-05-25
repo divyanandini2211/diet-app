@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ActivityIndicator, Alert } from 'react-native';
-import axios from 'axios';
-
-const API_URL = process.env.EXPO_PUBLIC_API_URL;
+import AsyncStorage from '@react-native-async-storage/async-storage'; // ✅ ADDED THIS
 
 export default function PatientProfileScreen({ route, navigation }) {
   const { user } = route.params || {};
@@ -10,10 +8,7 @@ export default function PatientProfileScreen({ route, navigation }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Use the user object passed from navigation instead of fetching
-    if (user) {
-      setPatient(user);
-    }
+    if (user) setPatient(user);
     setLoading(false);
   }, [user]);
 
@@ -23,9 +18,10 @@ export default function PatientProfileScreen({ route, navigation }) {
       {
         text: 'Logout',
         style: 'destructive',
-        onPress: () => {
-          // Clear any stored auth and go back to login
-          navigation.navigate('Login');
+        onPress: async () => {
+          // ✅ WIPES THE MEMORY SO THEY DON'T AUTO-LOGIN
+          await AsyncStorage.removeItem('userData');
+          navigation.replace('Login');
         }
       }
     ]);
@@ -50,7 +46,7 @@ export default function PatientProfileScreen({ route, navigation }) {
             <Text style={styles.avatarText}>{patient?.name?.charAt(0).toUpperCase() || 'P'}</Text>
           </View>
           <Text style={styles.name}>{patient?.name || 'Patient'}</Text>
-          <Text style={styles.email}>{patient?.email || 'N/A'}</Text>
+          <Text style={styles.email}>{patient?.phone || 'N/A'}</Text>
         </View>
 
         {/* Info Items */}
@@ -69,11 +65,6 @@ export default function PatientProfileScreen({ route, navigation }) {
             <Text style={styles.infoLabel}>⚖️ Weight</Text>
             <Text style={styles.infoValue}>{patient?.weight || 'N/A'} kg</Text>
           </View>
-
-          <View style={styles.infoItem}>
-            <Text style={styles.infoLabel}>🔥 Streak</Text>
-            <Text style={styles.infoValue}>{patient?.streak || 0} days</Text>
-          </View>
         </View>
       </View>
 
@@ -86,105 +77,20 @@ export default function PatientProfileScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8FAFC',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E5',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#003366',
-  },
-  closeBtn: {
-    fontSize: 24,
-    color: '#64748B',
-  },
-  profileCard: {
-    margin: 20,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  avatarSection: {
-    alignItems: 'center',
-    marginBottom: 30,
-  },
-  avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#005BB5',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  avatarText: {
-    fontSize: 36,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  name: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#003366',
-    marginBottom: 4,
-  },
-  email: {
-    fontSize: 14,
-    color: '#64748B',
-    fontWeight: '500',
-  },
-  infoSection: {
-    gap: 16,
-  },
-  infoItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E5',
-  },
-  infoLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#64748B',
-  },
-  infoValue: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  logoutButton: {
-    marginHorizontal: 20,
-    marginBottom: 30,
-    paddingVertical: 14,
-    backgroundColor: '#EF4444',
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#EF4444',
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  logoutText: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
+  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 15, backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E5E5E5' },
+  title: { fontSize: 24, fontWeight: '800', color: '#003366' },
+  closeBtn: { fontSize: 24, color: '#64748B' },
+  profileCard: { margin: 20, backgroundColor: '#FFFFFF', borderRadius: 16, padding: 20, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 },
+  avatarSection: { alignItems: 'center', marginBottom: 30 },
+  avatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#005BB5', justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
+  avatarText: { fontSize: 36, fontWeight: '800', color: '#FFFFFF' },
+  name: { fontSize: 22, fontWeight: '800', color: '#003366', marginBottom: 4 },
+  email: { fontSize: 14, color: '#64748B', fontWeight: '500' },
+  infoSection: { gap: 16 },
+  infoItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#E5E5E5' },
+  infoLabel: { fontSize: 14, fontWeight: '700', color: '#64748B' },
+  infoValue: { fontSize: 16, fontWeight: '800', color: '#0F172A' },
+  logoutButton: { marginHorizontal: 20, marginBottom: 30, paddingVertical: 14, backgroundColor: '#EF4444', borderRadius: 12, alignItems: 'center', justifyContent: 'center', shadowColor: '#EF4444', shadowOpacity: 0.3, shadowRadius: 8, elevation: 3 },
+  logoutText: { fontSize: 16, fontWeight: '800', color: '#FFFFFF' }
 });

@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated } from 'react-native';
 import axios from 'axios';
+// ✅ IMPORTED THE NEW CIRCLE PROGRESS PACKAGE
+import CircularProgress from 'react-native-circular-progress-indicator'; 
 
 export default function PatientDashboard({ route, navigation }) {
   const { user } = route.params || {}; 
@@ -64,7 +66,7 @@ export default function PatientDashboard({ route, navigation }) {
   // 🔴 🔵 LOGIC TO CHOOSE COLOR: RED IF EXCEEDED, BLUE IF SAFE
   const getMacroColor = (actual, target) => {
     if (!target || target === 0) return '#005BB5';
-    return actual >= target ? '#D32F2F' : '#005BB5'; // Red if >= target, else Blue
+    return actual >= target ? '#D32F2F' : '#005BB5'; 
   };
 
   const calTarget = dietPlan?.dailyGoals?.calorieTarget || 2000;
@@ -99,11 +101,21 @@ export default function PatientDashboard({ route, navigation }) {
           <Text style={styles.progressTitle}>📈 Daily Progress</Text>
           
           <View style={styles.calorieRow}>
-            {/* The circle border changes color based on calories */}
+            {/* ✅ THE NEW REAL CIRCULAR PROGRESS BAR */}
             <View style={styles.circularProgressContainer}>
-              <View style={[styles.circularProgress, { borderColor: calColor }]}>
-                <Text style={styles.circularLabel}>CALORIES</Text>
-              </View>
+              <CircularProgress
+                value={Math.round(todaysMacros.calories)}
+                radius={55}
+                maxValue={calTarget}
+                activeStrokeColor={calColor}
+                inActiveStrokeColor={'#E0E0E0'}
+                activeStrokeWidth={10}
+                inActiveStrokeWidth={10}
+                showProgressValue={false} 
+                title={"CALORIES"}        
+                titleColor={'#666'}
+                titleStyle={{ fontWeight: '700', fontSize: 12 }}
+              />
             </View>
             <View style={styles.calorieTextColumn}>
               <Text style={[styles.calorieCount, { color: calColor }]}>{Math.round(todaysMacros.calories)}</Text>
@@ -161,7 +173,6 @@ const styles = StyleSheet.create({
   welcomeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
   welcome: { flex: 1, fontSize: 26, fontWeight: '800', color: '#002244' },
   
-  // INCREASED marginBottom to push chart down!
   alertCard: { backgroundColor: '#FFFFFF', padding: 18, borderRadius: 12, borderLeftWidth: 5, borderLeftColor: '#005BB5', marginBottom: 35, elevation: 2 },
   alertTitle: { color: '#003366', fontWeight: 'bold', fontSize: 16 },
   alertText: { color: '#333333', marginTop: 5, fontSize: 14 },
@@ -171,8 +182,6 @@ const styles = StyleSheet.create({
   
   calorieRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 25 },
   circularProgressContainer: { alignItems: 'center', justifyContent: 'center' },
-  circularProgress: { width: 110, height: 110, borderRadius: 55, borderWidth: 8, justifyContent: 'center', alignItems: 'center' },
-  circularLabel: { fontSize: 12, fontWeight: '700', color: '#666' },
   
   calorieTextColumn: { alignItems: 'flex-end' },
   calorieCount: { fontSize: 32, fontWeight: '800' },
