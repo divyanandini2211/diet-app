@@ -16,6 +16,9 @@ export default function DietDetailScreen({ route, navigation }) {
   const [foodSearchQuery, setFoodSearchQuery] = useState('');
   const [selectedSessionForFood, setSelectedSessionForFood] = useState(null);
   const [allFoods, setAllFoods] = useState([]);
+
+  // ✅ NEW: State for the Full-Screen Image Viewer!
+  const [fullScreenImage, setFullScreenImage] = useState(null); 
   
   const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
@@ -24,9 +27,7 @@ export default function DietDetailScreen({ route, navigation }) {
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => { fetchData(); });
     fetchData();
-    let refreshInterval;
-    if (activeTab === 'monitor') refreshInterval = setInterval(() => { fetchData(); }, 5000);
-    return () => { unsubscribe(); if (refreshInterval) clearInterval(refreshInterval); };
+    return () => { unsubscribe(); };
   }, [activeTab, navigation]);
 
   const loadAvailableFoods = async () => {
@@ -58,11 +59,10 @@ export default function DietDetailScreen({ route, navigation }) {
     } catch (e) { Alert.alert("Error", "Could not fetch data."); } finally { setLoading(false); }
   };
 
-  // --- DIETITIAN EDIT LOGIC ---
   const handleMacroChange = (logId, macroName, value) => {
     setAiLogs(prevLogs => prevLogs.map(log => {
       if (log._id === logId) {
-        return { ...log, actualMacros: { ...log.actualMacros, [macroName]: parseInt(value) || 0 } };
+        return { ...log, actualMacros: { ...log.actualMacros, [macroName]: value } };
       }
       return log;
     }));
@@ -77,9 +77,16 @@ export default function DietDetailScreen({ route, navigation }) {
 
   const approveMeal = async (logId) => {
     const logToApprove = aiLogs.find(l => l._id === logId);
+    const safeMacros = {
+      calories: parseInt(logToApprove.actualMacros?.calories) || 0,
+      protein: parseInt(logToApprove.actualMacros?.protein) || 0,
+      carbs: parseInt(logToApprove.actualMacros?.carbs) || 0,
+      fat: parseInt(logToApprove.actualMacros?.fat) || 0,
+      fiber: parseInt(logToApprove.actualMacros?.fiber) || 0,
+    };
     try {
       await axios.put(`${API_URL}/api/dietitian/log/${logId}/approve`, {
-        actualMacros: logToApprove.actualMacros,
+        actualMacros: safeMacros,
         feedback: logToApprove.feedback
       });
       Alert.alert("Approved", "Meal has been updated and approved!");
@@ -89,10 +96,10 @@ export default function DietDetailScreen({ route, navigation }) {
     }
   };
 
-  // --- PLAN EDITOR FUNCTIONS ---
-  const updateGoal = (field, value) => setDailyGoals({ ...dailyGoals, [field]: parseInt(value) || 0 });
+  const updateGoal = (field, value) => setDailyGoals({ ...dailyGoals, [field]: value }); 
   const updateQuantity = (sIndex, iIndex, value) => { const p = { ...dietPlan }; p.sessions[sIndex].items[iIndex].quantityValue = value; setDietPlan(p); };
   const updateUnit = (sIndex, iIndex, value) => { const p = { ...dietPlan }; p.sessions[sIndex].items[iIndex].unit = value; setDietPlan(p); };
+  
   const addFoodToSession = (food) => {
     if (!selectedSessionForFood) return;
     const p = { ...dietPlan };
@@ -100,24 +107,36 @@ export default function DietDetailScreen({ route, navigation }) {
     p.sessions[sIndex].items.push({ ...food, targetNutrition: { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 } });
     setDietPlan(p); setShowFoodModal(false); setFoodSearchQuery('');
   };
+  
   const addCustomFood = (sessionName) => {
     const p = { ...dietPlan };
     const sIndex = p.sessions.findIndex(s => s.sessionName === sessionName);
     p.sessions[sIndex].items.push({ categoryName: "New Item", options: ["Option 1"], quantityValue: "1", unit: "Unit", targetNutrition: { calories: 100, protein: 5, carbs: 15, fat: 3, fiber: 2 } });
     setDietPlan(p);
   };
+  
   const updateCategoryName = (sIndex, iIndex, value) => { const p = { ...dietPlan }; p.sessions[sIndex].items[iIndex].categoryName = value; setDietPlan(p); };
-  const updateItemOptions = (sIndex, iIndex, value) => { const p = { ...dietPlan }; p.sessions[sIndex].items[iIndex].options = value.split(',').map(opt => opt.trim()).filter(opt => opt.length > 0); setDietPlan(p); };
+  const updateItemOptions = (sIndex, iIndex, value) => { const p = { ...dietPlan }; p.sessions[sIndex].items[iIndex].options = value.split(','); setDietPlan(p); };
+  
   const handleRemoveItem = (sIndex, iIndex) => {
     Alert.alert("Remove Item", "Remove this item from the plan?", [{ text: "Cancel", style: "cancel" }, { text: "Remove", style: "destructive", onPress: () => { const p = { ...dietPlan }; p.sessions[sIndex].items.splice(iIndex, 1); setDietPlan(p); } }]);
   };
+  
   const saveDietPlan = async () => {
     setLoading(true);
     try {
-      await axios.put(`${API_URL}/api/dietitian/patient/${patient._id}/diet-full`, { sessions: dietPlan.sessions, avoidables: avoidables, dailyGoals: dailyGoals });
+      const safeGoals = {
+        calorieTarget: parseInt(dailyGoals.calorieTarget) || 0,
+        proteinTarget: parseInt(dailyGoals.proteinTarget) || 0,
+        carbsTarget: parseInt(dailyGoals.carbsTarget) || 0,
+        fatTarget: parseInt(dailyGoals.fatTarget) || 0,
+        fiberTarget: parseInt(dailyGoals.fiberTarget) || 0,
+      };
+      await axios.put(`${API_URL}/api/dietitian/patient/${patient._id}/diet-full`, { sessions: dietPlan.sessions, avoidables: avoidables, dailyGoals: safeGoals });
       Alert.alert("Success", "Diet Plan Saved!"); navigation.goBack();
     } catch (e) { Alert.alert("Error", "Could not save the diet plan."); } finally { setLoading(false); }
   };
+  
   const filteredFoods = allFoods.filter(food => food.categoryName.toLowerCase().includes(foodSearchQuery.toLowerCase()));
 
   const renderPlanEditor = () => {
@@ -128,7 +147,7 @@ export default function DietDetailScreen({ route, navigation }) {
           {['calorieTarget', 'proteinTarget', 'carbsTarget', 'fatTarget', 'fiberTarget'].map((goal, idx) => (
             <View key={idx} style={styles.goalInput}>
               <Text style={styles.goalLabel}>{goal.replace('Target', '')}</Text>
-              <TextInput style={styles.goalField} keyboardType="numeric" value={String(dailyGoals?.[goal] || 0)} onChangeText={(val) => updateGoal(goal, val)} />
+              <TextInput style={styles.goalField} keyboardType="numeric" value={dailyGoals?.[goal] !== undefined && dailyGoals?.[goal] !== '' ? String(dailyGoals[goal]) : ''} onChangeText={(val) => updateGoal(goal, val)} />
               <Text style={styles.goalUnit}>{goal === 'calorieTarget' ? 'kcal' : 'g'}</Text>
             </View>
           ))}
@@ -156,9 +175,9 @@ export default function DietDetailScreen({ route, navigation }) {
                   <TouchableOpacity onPress={() => handleRemoveItem(sIndex, iIndex)} style={styles.deleteIconBox}><Text style={styles.deleteIcon}>−</Text></TouchableOpacity>
                 </View>
                 <Text style={styles.optionsLabel}>Options (comma separated):</Text>
-                <TextInput style={styles.optionsInput} value={item.options.join(', ')} onChangeText={(val) => updateItemOptions(sIndex, iIndex, val)} placeholder="e.g., Rice, Wheat" multiline />
+                <TextInput style={styles.optionsInput} value={item.options.join(',')} onChangeText={(val) => updateItemOptions(sIndex, iIndex, val)} placeholder="e.g. Rice,Wheat" multiline />
                 <View style={styles.qtySection}>
-                  <TextInput style={styles.qtyInputField} keyboardType="numeric" value={String(item.quantityValue)} onChangeText={(val) => updateQuantity(sIndex, iIndex, val)} />
+                  <TextInput style={styles.qtyInputField} keyboardType="numeric" value={item.quantityValue !== undefined ? String(item.quantityValue) : ''} onChangeText={(val) => updateQuantity(sIndex, iIndex, val)} />
                   <TextInput style={styles.unitInputField} value={item.unit} onChangeText={(val) => updateUnit(sIndex, iIndex, val)} />
                 </View>
               </View>
@@ -205,7 +224,15 @@ export default function DietDetailScreen({ route, navigation }) {
                 </Text>
               </View>
               
-              {log.imageUrl && <Image source={{ uri: log.imageUrl }} style={styles.foodImage} />}
+              {/* ✅ NEW: Tap to Enlarge Image Feature! */}
+              {log.imageUrl && (
+                <TouchableOpacity style={styles.imageWrapper} onPress={() => setFullScreenImage(log.imageUrl)}>
+                  <Image source={{ uri: log.imageUrl }} style={styles.foodImage} />
+                  <View style={styles.zoomHint}>
+                    <Text style={styles.zoomText}>🔍 Tap to enlarge</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
               
               <View style={styles.logDetails}>
                 <Text style={styles.detectedTitle}>🔍 Detected & Confirmed Items:</Text>
@@ -223,7 +250,7 @@ export default function DietDetailScreen({ route, navigation }) {
                       <Text style={styles.macroCell}>{macro.charAt(0).toUpperCase() + macro.slice(1)}</Text>
                       <Text style={styles.macroCell}>{log.prescribedMacros?.[macro] || 0}</Text>
                       {isPending ? (
-                        <TextInput style={styles.editMacroInput} keyboardType="numeric" value={String(log.actualMacros?.[macro] || 0)} onChangeText={(val) => handleMacroChange(log._id, macro, val)} />
+                        <TextInput style={styles.editMacroInput} keyboardType="numeric" value={log.actualMacros?.[macro] !== undefined && log.actualMacros?.[macro] !== '' ? String(log.actualMacros[macro]) : ''} onChangeText={(val) => handleMacroChange(log._id, macro, val)} />
                       ) : (
                         <Text style={[styles.macroCell, styles.actualValue]}>{log.actualMacros?.[macro] || 0}</Text>
                       )}
@@ -271,6 +298,19 @@ export default function DietDetailScreen({ route, navigation }) {
       <ScrollView style={{ flex: 1 }}>
         {loading ? <ActivityIndicator size="large" color="#005BB5" style={{ marginTop: 50 }} /> : (activeTab === 'plan' ? renderPlanEditor() : renderAiMonitor())}
       </ScrollView>
+
+      {/* ✅ NEW: FULL SCREEN IMAGE MODAL */}
+      <Modal visible={fullScreenImage !== null} transparent={true} animationType="fade">
+        <View style={styles.fullScreenBg}>
+          <TouchableOpacity style={styles.closeImageBtn} onPress={() => setFullScreenImage(null)}>
+            <Text style={styles.closeImageText}>✕ Close</Text>
+          </TouchableOpacity>
+          {fullScreenImage && (
+            <Image source={{ uri: fullScreenImage }} style={styles.fullScreenImg} resizeMode="contain" />
+          )}
+        </View>
+      </Modal>
+
     </View>
   );
 }
@@ -286,7 +326,20 @@ const styles = StyleSheet.create({
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', paddingTop: 100 }, modalContent: { flex: 1, backgroundColor: '#FFF', borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingTop: 20 }, modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginBottom: 15 }, modalTitle: { fontSize: 18, fontWeight: '800', color: '#003366' }, closeBtn: { fontSize: 28, color: '#999', fontWeight: 'bold' }, searchInput: { marginHorizontal: 20, paddingHorizontal: 15, paddingVertical: 12, backgroundColor: '#F5F5F5', borderRadius: 8, borderWidth: 1, borderColor: '#DDD', fontSize: 14, marginBottom: 15 }, foodOption: { paddingHorizontal: 20, paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: '#EEE' }, foodName: { fontSize: 15, fontWeight: '700', color: '#003366', marginBottom: 4 }, foodQty: { fontSize: 12, color: '#999' },
   saveBtn: { backgroundColor: '#003366', paddingVertical: 14, borderRadius: 8, alignItems: 'center', marginTop: 20, marginBottom: 10 }, saveBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 15 },
   emptyText: { textAlign: 'center', color: '#999', marginTop: 40, fontSize: 15 }, logCard: { backgroundColor: '#FFF', borderRadius: 10, marginBottom: 20, overflow: 'hidden', borderWidth: 1, borderColor: '#E5E5E5' }, logHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, backgroundColor: '#F8F9FB', borderBottomWidth: 1, borderBottomColor: '#E5E5E5' }, logDate: { fontWeight: '700', color: '#333', fontSize: 14 }, statusBadge: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12, fontSize: 12, fontWeight: 'bold' }, goodBadge: { backgroundColor: '#C8E6C9', color: '#2E7D32' }, badBadge: { backgroundColor: '#FFCDD2', color: '#C62828' }, pendingBadge: { backgroundColor: '#FFE0B2', color: '#E65100' },
-  foodImage: { width: '100%', height: 200, backgroundColor: '#EEE' }, logDetails: { padding: 15 }, detectedTitle: { fontWeight: '700', color: '#003366', fontSize: 13, marginBottom: 5 }, detectedItems: { color: '#555', fontSize: 13, marginBottom: 15 },
+  
+  // ✅ Image Styles Updated for Enlarge Feature
+  imageWrapper: { position: 'relative' },
+  foodImage: { width: '100%', height: 200, backgroundColor: '#EEE' }, 
+  zoomHint: { position: 'absolute', bottom: 10, right: 10, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 15 },
+  zoomText: { color: '#FFF', fontSize: 12, fontWeight: 'bold' },
+  
+  // ✅ Full Screen Modal Styles
+  fullScreenBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center' },
+  fullScreenImg: { width: '100%', height: '80%' },
+  closeImageBtn: { position: 'absolute', top: 50, right: 20, zIndex: 10, backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 8 },
+  closeImageText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
+
+  logDetails: { padding: 15 }, detectedTitle: { fontWeight: '700', color: '#003366', fontSize: 13, marginBottom: 5 }, detectedItems: { color: '#555', fontSize: 13, marginBottom: 15 },
   macroTable: { borderRadius: 8, borderWidth: 1, borderColor: '#DDD', overflow: 'hidden', marginBottom: 15 }, macroHeaderRow: { flexDirection: 'row', backgroundColor: '#F0F0F0', paddingVertical: 10 }, macroDataRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#EEE' }, macroCell: { flex: 1, textAlign: 'center', fontSize: 12, color: '#333' }, actualValue: { fontWeight: '700', color: '#005BB5' },
   editMacroInput: { flex: 1, backgroundColor: '#F0F4F8', borderWidth: 1, borderColor: '#005BB5', borderRadius: 4, textAlign: 'center', fontSize: 12, paddingVertical: 4, marginHorizontal: 10, fontWeight: 'bold', color: '#003366' }, editFeedbackInput: { backgroundColor: '#FFF', borderWidth: 1, borderColor: '#DDD', borderRadius: 6, padding: 10, fontSize: 13, minHeight: 60, textAlignVertical: 'top', marginTop: 5 },
   feedbackBox: { backgroundColor: '#E8F5E9', padding: 12, borderRadius: 8, borderLeftWidth: 4, borderLeftColor: '#4CAF50' }, warningBox: { backgroundColor: '#FFF3E0', borderLeftColor: '#FF9800' }, feedbackTitle: { fontWeight: '700', color: '#333', fontSize: 12, marginBottom: 5 }, feedbackText: { color: '#555', fontSize: 12, lineHeight: 18 },
