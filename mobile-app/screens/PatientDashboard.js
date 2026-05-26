@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated } from 'react-native';
 import axios from 'axios';
-// ✅ IMPORTED THE NEW CIRCLE PROGRESS PACKAGE
 import CircularProgress from 'react-native-circular-progress-indicator'; 
 
 export default function PatientDashboard({ route, navigation }) {
@@ -38,8 +37,10 @@ export default function PatientDashboard({ route, navigation }) {
       const res = await axios.get(`${API_URL}/api/patient/${myRealId}/today-logs/${today}`);
       if (res.data && Array.isArray(res.data)) {
         let totals = { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 };
+        
         res.data.forEach(log => {
-          if (log.actualMacros) {
+          // 🛑 CRITICAL FIX: Only add to the chart if the Dietitian APPROVED it!
+          if (log.actualMacros && log.approvalStatus === 'APPROVED') {
             totals.calories += log.actualMacros.calories || 0;
             totals.protein += log.actualMacros.protein || 0;
             totals.carbs += log.actualMacros.carbs || 0;
@@ -47,6 +48,7 @@ export default function PatientDashboard({ route, navigation }) {
             totals.fiber += log.actualMacros.fiber || 0;
           }
         });
+        
         setTodaysMacros(totals);
         
         // Calculate percentages (capped at 100% for the bars)
@@ -101,7 +103,7 @@ export default function PatientDashboard({ route, navigation }) {
           <Text style={styles.progressTitle}>📈 Daily Progress</Text>
           
           <View style={styles.calorieRow}>
-            {/* ✅ THE NEW REAL CIRCULAR PROGRESS BAR */}
+            {/* THE NEW REAL CIRCULAR PROGRESS BAR */}
             <View style={styles.circularProgressContainer}>
               <CircularProgress
                 value={Math.round(todaysMacros.calories)}

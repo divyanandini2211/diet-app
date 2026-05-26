@@ -2,26 +2,20 @@ const mongoose = require('mongoose');
 
 const DailyLogSchema = new mongoose.Schema({
   patientId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  date: { type: String, required: true }, // Format: "YYYY-MM-DD"
-  sessionName: { type: String }, // e.g., "Lunch"
+  date: { type: String, required: true }, 
+  sessionName: { type: String }, 
   
-  // What the user uploaded
-  imageUrl: { type: String }, // Can be base64 string or a URL
+  imageUrl: { type: String }, 
+  patientNote: { type: String }, // 👈 NEW: For "2 rotis"
   
-  // AI Analysis Results
+  approvalStatus: { type: String, default: 'PENDING' }, // 👈 NEW: 'PENDING' or 'APPROVED'
+  
   aiDetectedItems: [String],
+  prescribedMacros: { calories: Number, protein: Number, carbs: Number, fat: Number, fiber: Number },
+  actualMacros: { calories: Number, protein: Number, carbs: Number, fat: Number, fiber: Number },
   
-  prescribedMacros: {
-    calories: Number, protein: Number, carbs: Number, fat: Number, fiber: Number
-  },
-  
-  actualMacros: {
-    calories: Number, protein: Number, carbs: Number, fat: Number, fiber: Number
-  },
-  
-  // AI feedback message
+  status: String,
   feedback: String
-
 }, { timestamps: true });
 
 module.exports = mongoose.model('DailyLog', DailyLogSchema);

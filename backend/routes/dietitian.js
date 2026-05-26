@@ -1,7 +1,8 @@
-// routes/dietitian.js
 const express = require('express');
 const User = require('../models/User');
 const DietPlan = require('../models/DietPlan');
+// It's good practice to import DailyLog at the top!
+const DailyLog = require('../models/DailyLog'); 
 
 const router = express.Router();
 
@@ -49,6 +50,7 @@ router.get('/patient/:patientId/diet', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
 // 📱 PAGE 2: Edit or Delete items in a Patient's Diet Plan
 router.put('/patient/:patientId/diet/:sessionId', async (req, res) => {
   try {
@@ -64,8 +66,6 @@ router.put('/patient/:patientId/diet/:sessionId', async (req, res) => {
 
     session.items = updatedItems; // This handles both Edits and Deletes!
     await dietPlan.save();
-
-    // TODO: Later we will add Expo Push Notification here to alert the patient!
     
     res.json({ message: 'Diet Plan updated successfully!', dietPlan });
   } catch (error) {
@@ -77,12 +77,13 @@ router.put('/patient/:patientId/diet/:sessionId', async (req, res) => {
 router.get('/patient/:patientId/log/:date', async (req, res) => {
   try {
     const { patientId, date } = req.params;
-    const log = await require('../models/DailyLog').findOne({ patientId, date });
+    const log = await DailyLog.findOne({ patientId, date });
     res.json(log || { message: 'No logs for this date yet.' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
+
 // 📱 Update EVERYTHING: Sessions, Goals, Avoidables
 router.put('/patient/:patientId/diet-full', async (req, res) => {
   try {
@@ -93,7 +94,6 @@ router.put('/patient/:patientId/diet-full', async (req, res) => {
     let dietPlan = await DietPlan.findOne({ patientId });
     
     if (!dietPlan) {
-      // Create new diet plan if it doesn't exist
       dietPlan = new DietPlan({
         patientId,
         sessions,
@@ -131,25 +131,43 @@ router.put('/patient/:patientId/diet-full', async (req, res) => {
 router.get('/patient/:patientId/activity', async (req, res) => {
   try {
     const { patientId } = req.params;
-    const logs = await require('../models/DailyLog').find({ patientId });
-    // This sends back all dates the patient logged food
+    const logs = await DailyLog.find({ patientId });
     const activeDates = logs.map(log => log.date); 
     res.json(activeDates);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
-// 📱 NEW: Get ALL AI Logs & Photos for a Patient (for monitoring!)
+
+// 📱 Get ALL AI Logs & Photos for a Patient (for monitoring!)
 router.get('/patient/:patientId/all-logs', async (req, res) => {
   try {
     const { patientId } = req.params;
-    
-    // This fetches all logs for this patient and sorts them by newest first
-    const logs = await require('../models/DailyLog')
-                        .find({ patientId })
-                        .sort({ createdAt: -1 }); // -1 means newest first!
-                        
+    const logs = await DailyLog.find({ patientId }).sort({ createdAt: -1 }); // -1 means newest first!
     res.json(logs);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 📱 NEW: Approve and Edit a Pending Log (Dietitian Side)
+router.put('/log/:logId/approve', async (req, res) => {
+  try {
+    const { logId } = req.params;
+    const { actualMacros, feedback } = req.body;
+
+    const log = await DailyLog.findById(logId);
+    if (!log) return res.status(404).json({ message: 'Log not found' });
+
+    // Update the macros and feedback with the Dietitian's final numbers
+    log.actualMacros = actualMacros;
+    log.feedback = feedback;
+    
+    // Change the status to APPROVED so it unlocks on the Patient's screen!
+    log.approvalStatus = 'APPROVED'; 
+
+    await log.save();
+    res.json({ message: 'Log approved successfully!', log });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -159,7 +177,7 @@ router.get('/patient/:patientId/all-logs', async (req, res) => {
 router.delete('/cleanup/all-diet-plans', async (req, res) => {
   try {
     const result = await DietPlan.deleteMany({});
-    res.json({ message: `✅ Deleted ${result.deletedCount} old diet plans. New ones will be created from master data on next access.` });
+    res.json({ message: `✅ Deleted ${result.deletedCount} old diet plans.` });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

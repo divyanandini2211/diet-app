@@ -5,7 +5,6 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 // Import Models
 const DietPlan = require('../models/DietPlan');
 const DailyLog = require('../models/DailyLog');
-const User = require('../models/User'); 
 
 // --- Route 1: Get the Patient's Diet Plan ---
 router.get('/my-diet/:patientId', async (req, res) => {
@@ -18,136 +17,125 @@ router.get('/my-diet/:patientId', async (req, res) => {
   }
 });
 
-// --- Route 2: The Core Gemini AI Meal Analysis ---
-router.post('/:patientId/analyze-meal', async (req, res) => {
+// --- Route 2: STEP 1 - FAST AI DETECTION (No Saving) ---
+// This just quickly looks at the photo and lists the food names so the patient doesn't have to type them.
+router.post('/:patientId/detect-items', async (req, res) => {
+  try {
+    const { imageBase64 } = req.body;
+    if (!process.env.GEMINI_API_KEY) return res.status(500).json({ error: "Gemini API key is missing!" });
+
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite", generationConfig: { responseMimeType: "application/json" } });
+
+    const prompt = `Identify the food items in this image. Do not calculate macros yet. Return ONLY a JSON object in this format: { "items": ["Food 1", "Food 2"] }`;
+    
+    console.log(`Detecting food items for patient ${req.params.patientId}...`);
+    const result = await model.generateContent([prompt, { inlineData: { data: imageBase64, mimeType: "image/jpeg" } }]);
+    
+    let responseText = result.response.text().replace(/```json/g, '').replace(/```/g, '').trim();
+    res.json(JSON.parse(responseText));
+
+  } catch (error) {
+    console.error("Detect Error:", error);
+    res.status(500).json({ error: "Failed to detect items." });
+  }
+});
+
+// --- Route 3: STEP 2 - CALCULATE MACROS & SAVE AS PENDING ---
+router.post('/:patientId/analyze-and-save', async (req, res) => {
   try {
     const { patientId } = req.params;
-    const { sessionName, imageBase64, date } = req.body; 
+    const { sessionName, imageBase64, date, finalizedItems } = req.body; 
+    // finalizedItems looks like: [{name: "Roti", quantity: "2"}, {name: "Dal", quantity: "1 bowl"}]
 
-    if (!process.env.GEMINI_API_KEY) {
-      return res.status(500).json({ error: "Gemini API key is missing!" });
-    }
-
-    // 1. Fetch the patient's diet plan to get DAILY targets
     const dietPlan = await DietPlan.findOne({ patientId });
-    if (!dietPlan) return res.status(404).json({ error: 'No diet plan found for this patient.' });
+    if (!dietPlan) return res.status(404).json({ error: 'No diet plan found.' });
     
-    const dailyGoals = dietPlan.dailyGoals;
-
-    // 2. Set up Google Gemini AI
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ 
-        model: "gemini-3.1-flash-lite", // Using the correct current model name
-        generationConfig: { responseMimeType: "application/json" }
-    });
+    const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite", generationConfig: { responseMimeType: "application/json" }});
    
-    // 3. The Refined Prompt
+    // The AI now calculates macros based on the EXACT quantities the patient typed!
+    // The AI now calculates macros based on the quantities OR the image if they left it blank!
     const prompt = `
-      You are the patient's personal, human clinical dietitian. Speak directly to the patient using "you" and "your". 
-      Tone: Warm, encouraging, but clinical and strict about restricted foods.
+      You are a clinical dietitian AI. 
+      RESTRICTED FOODS: "${dietPlan.avoidables || "None"}".
       
-      ⚠️ RESTRICTED FOODS: "${dietPlan.avoidables || "None"}".
-      
-      CONTEXT: The patient eats traditional Indian home-cooked meals (e.g., puri, roti, dal, curries). DO NOT classify traditional home-cooked Indian foods as "bakery items" or "junk food". Evaluate them fairly based on their ingredients.
+      The patient provided this list of foods and quantities:
+      ${JSON.stringify(finalizedItems)}
+      🥘 TRADITIONAL FRIED FOOD RULE: 
+      - DO NOT issue a WARNING for traditional home-cooked Indian fried foods (like Puri, Vada, Pakora, Paratha, etc.) just because they use oil or are fried. 
+      - ONLY issue a WARNING if the specific item, or the phrase "fried foods", is explicitly written in the RESTRICTED FOODS list above.
       
       Tasks:
-      1. Identify all food items in the meal.
-      2. Estimate the nutritional content (calories, protein, carbs, fat, fiber).
-      3. CRITICAL: If a food EXACTLY matches the restricted list, start your feedback with "🚨 WARNING:". Otherwise, give 2 sentences of encouraging feedback.
+      1. Estimate the exact nutritional content (calories, protein, carbs, fat, fiber).
+      2. CRITICAL RULES FOR QUANTITY: 
+         - If the patient typed a specific quantity (e.g., "2", "150g"), calculate exactly for that.
+         - If the quantity is BLANK, vague (e.g., "some"), or just "1", look at the provided IMAGE to visually estimate the portion size.
+         - If you still cannot determine the size, assume 1 standard average serving for that food.
+      3. Check if any of these foods match the restricted list. If so, start your feedback with "🚨 WARNING:". Otherwise, give encouraging feedback.
       
-      Return ONLY a JSON object in this exact format:
+      Return ONLY a JSON object in this format:
       {
-        "aiDetectedItems": ["food 1", "food 2"],
         "actualMacros": {"calories": 0, "protein": 0, "carbs": 0, "fat": 0, "fiber": 0},
-        "feedback": "Write human-like feedback here."
+        "feedback": "Write feedback here."
       }
     `;
 
-    // 4. Send the Image and Prompt to Gemini
-    console.log(`Analyzing ${sessionName} for patient ${patientId}...`);
-    const result = await model.generateContent([
-      prompt, 
-      { inlineData: { data: imageBase64, mimeType: "image/jpeg" } }
-    ]);
+    console.log(`Calculating final macros and saving as PENDING...`);
+    const result = await model.generateContent([prompt, { inlineData: { data: imageBase64, mimeType: "image/jpeg" } }]);
     
-    // 5. Parse the AI's response safely
-    let responseText = result.response.text();
-    responseText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+    let responseText = result.response.text().replace(/```json/g, '').replace(/```/g, '').trim();
     const aiResult = JSON.parse(responseText);
 
-    // 6. CALCULATE DAILY MATH & STATUS
-    const todayLogs = await DailyLog.find({ patientId, date });
-    
-    let caloriesEatenToday = 0;
-    todayLogs.forEach(log => {
-      if (log.actualMacros && log.actualMacros.calories) {
-        caloriesEatenToday += log.actualMacros.calories;
-      }
-    });
+    // Format the items so they look nice in the database (e.g. "2 x Roti", "1 bowl x Dal")
+    const formattedItems = finalizedItems.map(item => `${item.quantity} x ${item.name}`);
 
-    const newTotalCalories = caloriesEatenToday + aiResult.actualMacros.calories;
-
-    let status = "GOOD";
-    if (aiResult.feedback.includes("🚨 WARNING:")) {
-      status = "WARNING"; // AI noticed they ate a restricted food
-    } else if (newTotalCalories > dailyGoals.calorieTarget) {
-      status = "EXCEEDED"; // Pushed them over the daily limit
-    } else if (newTotalCalories > (dailyGoals.calorieTarget * 0.85)) {
-      status = "WARNING"; // Approaching limit (85%+)
-    }
-
-    // 7. Save the complete log to the database
+    // SAVE AS PENDING
     const newLog = new DailyLog({
       patientId,
       date,
       sessionName,
       imageUrl: `data:image/jpeg;base64,${imageBase64}`, 
-      aiDetectedItems: aiResult.aiDetectedItems,
-      
-      // ✅ FIXED: Mapping DietPlan target names to DailyLog schema names!
+      aiDetectedItems: formattedItems,
       prescribedMacros: {
-        calories: dailyGoals.calorieTarget || 2000,
-        protein: dailyGoals.proteinTarget || 100,
-        carbs: dailyGoals.carbsTarget || 250,
-        fat: dailyGoals.fatTarget || 65,
-        fiber: dailyGoals.fiberTarget || 30
+        calories: dietPlan.dailyGoals.calorieTarget || 2000,
+        protein: dietPlan.dailyGoals.proteinTarget || 100,
+        carbs: dietPlan.dailyGoals.carbsTarget || 250,
+        fat: dietPlan.dailyGoals.fatTarget || 65,
+        fiber: dietPlan.dailyGoals.fiberTarget || 30
       },
-
       actualMacros: aiResult.actualMacros,
-      status: status, 
+      approvalStatus: 'PENDING', // 👈 MANDATORY REVIEW FOR DIETITIAN
+      status: aiResult.feedback.includes("🚨 WARNING:") ? "WARNING" : "GOOD", 
       feedback: aiResult.feedback
     });
     
     await newLog.save();
-
-    // 8. Send the full log record back to the Mobile App
     res.json(newLog);
 
   } catch (error) {
-    console.error("AI Error:", error);
-    res.status(500).json({ error: "Failed to analyze the meal. " + error.message });
+    console.error("Save Error:", error);
+    res.status(500).json({ error: "Failed to save the meal." });
   }
 });
 
-// --- Route 3: Get all AI logs for a patient (Dietitian's Monitor tab) ---
+// --- Route 4: Get all logs ---
 router.get('/:patientId/all-logs', async (req, res) => {
     try {
       const logs = await DailyLog.find({ patientId: req.params.patientId }).sort({ createdAt: -1 });
       res.json(logs);
     } catch (err) {
-      console.error(err);
       res.status(500).send('Server Error');
     }
 });
 
-// --- Route 4: Get today's logs for a patient (Patient Dashboard) ---
+// --- Route 5: Get today's logs ---
 router.get('/:patientId/today-logs/:date', async (req, res) => {
     try {
       const { patientId, date } = req.params;
       const logs = await DailyLog.find({ patientId, date });
       res.json(logs);
     } catch (err) {
-      console.error(err);
       res.status(500).send('Server Error');
     }
 });
