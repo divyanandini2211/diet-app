@@ -27,8 +27,8 @@ mongoose.connect(MONGO_URI)
   .then(() => console.log('🟢 MongoDB Connected successfully to dietAppDB!'))
   .catch((err) => {
     console.log('🔴 MONGODB CRASH REASON:');
-    console.log(err.message);
-    console.log('👉 Bro, make sure your MongoDB app is actually open and running on your computer!');
+    console.error(err);
+    console.log('👉 Check Atlas Network Access (IP whitelist), DB user credentials, and that the connection string in your .env is correct.');
   });
 
 // 🏠 DEFAULT ROUTE

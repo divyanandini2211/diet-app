@@ -61,7 +61,7 @@ exports.requestOtp = async (req, res) => {
       console.log("Email not sent (Check .env credentials):", emailErr.message);
     }
 
-    res.status(200).json({ message: 'OTP sent to email!', testOtp: otp });
+    res.status(200).json({ message: 'OTP sent to email!' });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }
