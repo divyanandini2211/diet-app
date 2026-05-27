@@ -282,7 +282,31 @@ export default function DietDetailScreen({ route, navigation }) {
       )}
     </View>
   );
+  const renderProgress = () => (
+  <View style={styles.contentPad}>
+    <Text style={styles.sectionTitle}>📈 Progress Analytics</Text>
 
+    <View style={styles.progressControls}>
+      <TouchableOpacity style={styles.progressBtn}>
+        <Text style={styles.progressBtnText}>Weekly</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.progressBtn}>
+        <Text style={styles.progressBtnText}>Protein</Text>
+      </TouchableOpacity>
+      </View>
+
+      <View style={styles.placeholderCard}>
+        <Text style={styles.placeholderTitle}>
+          Progress charts coming next
+        </Text>
+
+        <Text style={styles.placeholderText}>
+          Weekly and monthly adherence analytics will appear here.
+        </Text>
+      </View>
+    </View>
+  );
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -292,11 +316,12 @@ export default function DietDetailScreen({ route, navigation }) {
 
       <View style={styles.tabContainer}>
         <TouchableOpacity style={[styles.tab, activeTab === 'plan' && styles.activeTab]} onPress={() => setActiveTab('plan')}><Text style={[styles.tabText, activeTab === 'plan' && styles.activeTabText]}>Edit Plan</Text></TouchableOpacity>
-        <TouchableOpacity style={[styles.tab, activeTab === 'monitor' && styles.activeTab]} onPress={() => setActiveTab('monitor')}><Text style={[styles.tabText, activeTab === 'monitor' && styles.activeTabText]}>AI Monitor</Text></TouchableOpacity>
+        <TouchableOpacity style={[styles.tab, activeTab === 'monitor' && styles.activeTab]} onPress={() => setActiveTab('monitor')}><Text style={[styles.tabText, activeTab === 'monitor' && styles.activeTabText]}>Monitor</Text></TouchableOpacity>
+        <TouchableOpacity style={[styles.tab, activeTab === 'progress' && styles.activeTab]} onPress={() => setActiveTab('progress')}><Text style={[styles.tabText, activeTab === 'progress' && styles.activeTabText]}>Progress</Text></TouchableOpacity>
       </View>
 
       <ScrollView style={{ flex: 1 }}>
-        {loading ? <ActivityIndicator size="large" color="#005BB5" style={{ marginTop: 50 }} /> : (activeTab === 'plan' ? renderPlanEditor() : renderAiMonitor())}
+        {loading ? <ActivityIndicator size="large" color="#005BB5" style={{ marginTop: 50 }} /> : (activeTab === 'plan' ? renderPlanEditor() : activeTab=='monitor' ? renderAiMonitor() : renderProgress())}
       </ScrollView>
 
       {/* ✅ NEW: FULL SCREEN IMAGE MODAL */}
@@ -343,5 +368,16 @@ const styles = StyleSheet.create({
   macroTable: { borderRadius: 8, borderWidth: 1, borderColor: '#DDD', overflow: 'hidden', marginBottom: 15 }, macroHeaderRow: { flexDirection: 'row', backgroundColor: '#F0F0F0', paddingVertical: 10 }, macroDataRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#EEE' }, macroCell: { flex: 1, textAlign: 'center', fontSize: 12, color: '#333' }, actualValue: { fontWeight: '700', color: '#005BB5' },
   editMacroInput: { flex: 1, backgroundColor: '#F0F4F8', borderWidth: 1, borderColor: '#005BB5', borderRadius: 4, textAlign: 'center', fontSize: 12, paddingVertical: 4, marginHorizontal: 10, fontWeight: 'bold', color: '#003366' }, editFeedbackInput: { backgroundColor: '#FFF', borderWidth: 1, borderColor: '#DDD', borderRadius: 6, padding: 10, fontSize: 13, minHeight: 60, textAlignVertical: 'top', marginTop: 5 },
   feedbackBox: { backgroundColor: '#E8F5E9', padding: 12, borderRadius: 8, borderLeftWidth: 4, borderLeftColor: '#4CAF50' }, warningBox: { backgroundColor: '#FFF3E0', borderLeftColor: '#FF9800' }, feedbackTitle: { fontWeight: '700', color: '#333', fontSize: 12, marginBottom: 5 }, feedbackText: { color: '#555', fontSize: 12, lineHeight: 18 },
-  approveBtn: { backgroundColor: '#4CAF50', padding: 15, borderRadius: 8, alignItems: 'center', marginTop: 15 }, approveBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 }
+  approveBtn: { backgroundColor: '#4CAF50', padding: 15, borderRadius: 8, alignItems: 'center', marginTop: 15 }, approveBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
+  progressControls: {flexDirection: 'row',justifyContent: 'space-between',marginBottom: 20,gap: 10},
+
+progressBtn: {flex: 1,backgroundColor: '#E3F2FD',paddingVertical: 12,borderRadius: 8,alignItems: 'center'},
+
+progressBtnText: {color: '#005BB5',fontWeight: '700'},
+
+placeholderCard: {backgroundColor: '#FFF',borderRadius: 12,padding: 25,alignItems: 'center',borderWidth: 1,borderColor: '#E5E5E5'},
+
+placeholderTitle: {fontSize: 18,fontWeight: '800',color: '#003366',marginBottom: 10},
+
+placeholderText: {textAlign: 'center',color: '#666',lineHeight: 22}
 });
