@@ -45,7 +45,7 @@ router.post('/:patientId/detect-items', async (req, res) => {
 router.post('/:patientId/analyze-and-save', async (req, res) => {
   try {
     const { patientId } = req.params;
-    const { sessionName, imageBase64, date, finalizedItems } = req.body; 
+    const {imageBase64,date,finalizedItems,capturedAt,displayTime} = req.body;
     // finalizedItems looks like: [{name: "Roti", quantity: "2"}, {name: "Dal", quantity: "1 bowl"}]
 
     const dietPlan = await DietPlan.findOne({ patientId });
@@ -94,7 +94,8 @@ router.post('/:patientId/analyze-and-save', async (req, res) => {
     const newLog = new DailyLog({
       patientId,
       date,
-      sessionName,
+      capturedAt,
+      displayTime,
       imageUrl: `data:image/jpeg;base64,${imageBase64}`, 
       aiDetectedItems: formattedItems,
       prescribedMacros: {
@@ -106,7 +107,7 @@ router.post('/:patientId/analyze-and-save', async (req, res) => {
       },
       actualMacros: aiResult.actualMacros,
       approvalStatus: 'PENDING', // 👈 MANDATORY REVIEW FOR DIETITIAN
-      status: aiResult.feedback.includes("🚨 WARNING:") ? "WARNING" : "GOOD", 
+      status: aiResult.feedback?.includes("🚨 WARNING:") ? "WARNING" : "GOOD", 
       feedback: aiResult.feedback
     });
     

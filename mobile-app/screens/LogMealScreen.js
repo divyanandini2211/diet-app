@@ -3,15 +3,17 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIn
 import * as ImagePicker from 'expo-image-picker';
 import axios from 'axios';
 
+
 export default function LogMealScreen({ route, navigation }) {
   const { patientId } = route.params || {};
-  const [session, setSession] = useState('Lunch');
   const [analyzing, setAnalyzing] = useState(false);
   const [history, setHistory] = useState([]); 
 
   const [step, setStep] = useState(1); 
   const [currentImageBase64, setCurrentImageBase64] = useState(null);
   const [currentImageUri, setCurrentImageUri] = useState(null);
+  const [capturedAt, setCapturedAt] = useState(null);
+  const [displayTime, setDisplayTime] = useState("");
   const [detectedItems, setDetectedItems] = useState([]); 
 
   const API_URL = process.env.EXPO_PUBLIC_API_URL;
@@ -40,7 +42,7 @@ export default function LogMealScreen({ route, navigation }) {
 
   const handleLogMeal = (source) => {
     if (!patientId) return Alert.alert("Error", "Session expired.");
-    Alert.alert(`Log ${session}`, "Where is the photo?", [
+    Alert.alert("Log Meal", "Where is the photo?", [
       { text: "Camera", onPress: () => processImage(source, 'camera') },
       { text: "Gallery", onPress: () => processImage(source, 'gallery') },
       { text: "Cancel", style: "cancel" }
@@ -62,8 +64,20 @@ export default function LogMealScreen({ route, navigation }) {
     if (!result.canceled) {
       setAnalyzing(true);
       const base64 = result.assets[0].base64;
+      const imageUri = result.assets[0].uri;
+
       setCurrentImageBase64(base64);
-      setCurrentImageUri(result.assets[0].uri);
+      setCurrentImageUri(imageUri);
+      const extractedCapturedAt = new Date();
+
+      const extractedDisplayTime = new Date(extractedCapturedAt)
+        .toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+
+      setCapturedAt(extractedCapturedAt);
+      setDisplayTime(extractedDisplayTime);
 
       try {
         const res = await axios.post(`${API_URL}/api/patient/${patientId}/detect-items`, { imageBase64: base64 });
@@ -95,7 +109,7 @@ export default function LogMealScreen({ route, navigation }) {
     try {
       const today = new Date().toISOString().split('T')[0];
       await axios.post(`${API_URL}/api/patient/${patientId}/analyze-and-save`, {
-        sessionName: session, date: today, imageBase64: currentImageBase64, finalizedItems: validItems 
+      date: today, imageBase64: currentImageBase64, finalizedItems: validItems, capturedAt, displayTime
       });
       
       Alert.alert("Sent to Dietitian!", "Your meal has been sent for professional review.");
@@ -122,21 +136,13 @@ export default function LogMealScreen({ route, navigation }) {
         {step === 1 && (
           <>
             <View style={styles.cameraCard}>
-              <Text style={styles.label}>1. Select Session</Text>
-              <View style={styles.sessionRow}>
-                {['Breakfast', 'Lunch', 'Dinner'].map((s) => (
-                  <TouchableOpacity key={s} style={[styles.sessionBtn, session === s && styles.sessionBtnActive]} onPress={() => setSession(s)}>
-                    <Text style={[styles.sessionText, session === s && styles.sessionTextActive]}>{s}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
               
-              <Text style={styles.label}>2. Snap Photo</Text>
+              <Text style={styles.label}>Snap Photo</Text>
               {analyzing ? (
                  <View style={styles.loadingBox}><ActivityIndicator size="large" color="#005BB5" /><Text style={styles.loadingText}>AI is scanning your food...</Text></View>
               ) : (
                  <TouchableOpacity style={styles.cameraActionBtn} onPress={handleLogMeal}>
-                   <Text style={styles.cameraActionText}>📸 Log {session}</Text>
+                   <Text style={styles.cameraActionText}>📸 Log Meal</Text>
                  </TouchableOpacity>
               )}
             </View>
@@ -150,7 +156,7 @@ export default function LogMealScreen({ route, navigation }) {
                   {log.imageUrl && <Image source={{ uri: log.imageUrl }} style={styles.historyImg} />}
                   <View style={styles.historyContent}>
                     <View style={styles.historyTop}>
-                      <Text style={styles.historyDate}>{log.date ? new Date(log.date).toLocaleDateString() : "Date"} • {log.sessionName}</Text>
+                      <Text style={styles.historyDate}>{log.date ? new Date(log.date).toLocaleDateString() : "Date"} • {log.displayTime || log.sessionName}</Text>
                     </View>
                     
                     <Text style={styles.detectedTitle}>{log.aiDetectedItems?.join(', ') || "Unknown"}</Text>
@@ -221,11 +227,6 @@ const styles = StyleSheet.create({
   
   cameraCard: { backgroundColor: '#FFF', margin: 20, padding: 20, borderRadius: 12, elevation: 3 },
   label: { fontSize: 15, fontWeight: '700', color: '#003366', marginBottom: 10 },
-  sessionRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 25 },
-  sessionBtn: { flex: 1, paddingVertical: 10, marginHorizontal: 4, borderRadius: 8, borderWidth: 1, borderColor: '#DDD', alignItems: 'center' },
-  sessionBtnActive: { backgroundColor: '#005BB5', borderColor: '#005BB5' },
-  sessionText: { color: '#666', fontWeight: '700', fontSize: 13 },
-  sessionTextActive: { color: '#FFF' },
   cameraActionBtn: { backgroundColor: '#003366', padding: 15, borderRadius: 10, alignItems: 'center' },
   cameraActionText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
   

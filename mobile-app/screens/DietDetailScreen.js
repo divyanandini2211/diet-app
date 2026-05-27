@@ -218,7 +218,7 @@ export default function DietDetailScreen({ route, navigation }) {
           return (
             <View key={log._id} style={[styles.logCard, isPending && { borderColor: '#FF9800', borderWidth: 2 }]}>
               <View style={styles.logHeader}>
-                <Text style={styles.logDate}>{new Date(log.date).toLocaleDateString()} • {log.sessionName}</Text>
+                <Text style={styles.logDate}>{new Date(log.date).toLocaleDateString()} • {log.displayTime || log.sessionName}</Text>
                 <Text style={[styles.statusBadge, isPending ? styles.pendingBadge : (log.status === 'EXCEEDED' ? styles.badBadge : styles.goodBadge)]}>
                   {isPending ? 'PENDING REVIEW' : log.status}
                 </Text>

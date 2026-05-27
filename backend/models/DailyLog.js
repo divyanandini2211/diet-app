@@ -4,7 +4,8 @@ const DailyLogSchema = new mongoose.Schema({
   patientId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   date: { type: String, required: true }, 
   sessionName: { type: String }, 
-  
+  capturedAt: { type: Date },
+  displayTime: { type: String },
   imageUrl: { type: String }, 
   patientNote: { type: String }, // 👈 NEW: For "2 rotis"
   
