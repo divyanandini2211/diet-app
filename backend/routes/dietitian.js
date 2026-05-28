@@ -182,5 +182,102 @@ router.delete('/cleanup/all-diet-plans', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+// --- NEW: Progress Analytics Route ---
+router.get('/patient/:id/progress', async (req, res) => {
+  try {
 
+    const logs = await DailyLog.find({
+      patientId: req.params.id
+    });
+
+    const dailyStats = {};
+
+    logs.forEach(log => {
+
+      let normalizedDate = log.date;
+
+      // Handles DD/MM/YYYY format safely
+      if (typeof log.date === 'string' && log.date.includes('/')) {
+
+        const [day, month, year] = log.date.split('/');
+
+        normalizedDate =
+          `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+      }
+
+      if (!dailyStats[normalizedDate]) {
+
+        dailyStats[normalizedDate] = {
+
+          actual: {
+            calories: 0,
+            protein: 0,
+            carbs: 0,
+            fat: 0,
+            fiber: 0
+          },
+
+          prescribed:
+            log.prescribedMacros || {
+              calories: 2000,
+              protein: 100,
+              carbs: 250,
+              fat: 65,
+              fiber: 30
+            }
+        };
+      }
+
+      ['calories', 'protein', 'carbs', 'fat', 'fiber']
+        .forEach(metric => {
+
+          dailyStats[normalizedDate]
+            .actual[metric] += (
+              log.actualMacros?.[metric] || 0
+            );
+        });
+    });
+
+    const progressData = {};
+
+    for (const date in dailyStats) {
+
+      progressData[date] = {};
+
+      ['calories', 'protein', 'carbs', 'fat', 'fiber']
+        .forEach(metric => {
+
+          const actual =
+            dailyStats[date].actual[metric];
+
+          const prescribed =
+            dailyStats[date].prescribed[metric];
+
+          const percentage =
+            prescribed > 0
+              ? Math.round((actual / prescribed) * 100)
+              : 0;
+
+          progressData[date][metric] = {
+
+            // Real percentage for tooltip
+            actualPercentage: percentage,
+
+            // Chart-safe percentage
+            chartPercentage: Math.min(percentage, 100)
+          };
+        });
+    }
+
+    res.json(progressData);
+
+  } catch (error) {
+
+    console.error('Progress Route Error:', error);
+
+    res.status(500).json({
+      error: error.message
+    });
+  }
+});
 module.exports = router;

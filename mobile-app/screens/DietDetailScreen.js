@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Image, Alert, Modal, FlatList } from 'react-native';
 import axios from 'axios';
+import { BarChart } from 'react-native-gifted-charts';
+import { Picker } from '@react-native-picker/picker';
 
 export default function DietDetailScreen({ route, navigation }) {
   const { patient } = route.params || {};
@@ -18,16 +20,52 @@ export default function DietDetailScreen({ route, navigation }) {
   const [allFoods, setAllFoods] = useState([]);
 
   // ✅ NEW: State for the Full-Screen Image Viewer!
-  const [fullScreenImage, setFullScreenImage] = useState(null); 
+  const [fullScreenImage, setFullScreenImage] = useState(null);
+  const [progressData, setProgressData] = useState({});
+  const [selectedMetric, setSelectedMetric] = useState('protein');
+  const [selectedDuration, setSelectedDuration] = useState('weekly');
+  const [loadingProgress, setLoadingProgress] = useState(false);
+  const [selectedPoint, setSelectedPoint] = useState(null);
+  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 }); 
   
   const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
   useEffect(() => { loadAvailableFoods(); }, []);
+  const fetchProgressData = async () => {
+
+  try {
+
+    setLoadingProgress(true);
+
+    const res = await axios.get(
+      `${API_URL}/api/dietitian/patient/${patient._id}/progress`
+    );
+
+    setProgressData(res.data);
+
+  } catch (error) {
+
+    console.log('Progress Fetch Error:', error);
+
+  } finally {
+
+    setLoadingProgress(false);
+  }
+  };
 
   useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', () => { fetchData(); });
+
+    const unsubscribe = navigation.addListener('focus', () => {
+
+      fetchData();
+      fetchProgressData();
+    });
+
     fetchData();
+    fetchProgressData();
+
     return () => { unsubscribe(); };
+
   }, [activeTab, navigation]);
 
   const loadAvailableFoods = async () => {
@@ -283,30 +321,166 @@ export default function DietDetailScreen({ route, navigation }) {
     </View>
   );
   const renderProgress = () => (
-  <View style={styles.contentPad}>
-    <Text style={styles.sectionTitle}>📈 Progress Analytics</Text>
 
-    <View style={styles.progressControls}>
-      <TouchableOpacity style={styles.progressBtn}>
-        <Text style={styles.progressBtnText}>Weekly</Text>
-      </TouchableOpacity>
+    <View style={styles.contentPad}>
 
-      <TouchableOpacity style={styles.progressBtn}>
-        <Text style={styles.progressBtnText}>Protein</Text>
-      </TouchableOpacity>
+      <Text style={styles.sectionTitle}>
+        📈 Progress Analytics
+      </Text>
+      <View style={{ flexDirection: 'row', gap: 12, marginBottom: 20 }}>
+
+        <View
+          style={{
+            flex: 1,
+            borderWidth: 2,
+            borderColor: '#2F6FED',
+            borderRadius: 16,
+            overflow: 'hidden',
+            backgroundColor: '#FFF'
+          }}
+        >
+          <Picker
+            selectedValue={selectedDuration}
+            onValueChange={(itemValue) =>
+              setSelectedDuration(itemValue)
+            }
+          >
+            <Picker.Item label="Weekly" value="weekly" />
+            <Picker.Item label="Monthly" value="monthly" />
+          </Picker>
+        </View>
+
+        <View
+          style={{
+            flex: 1,
+            borderWidth: 2,
+            borderColor: '#2F6FED',
+            borderRadius: 16,
+            overflow: 'hidden',
+            backgroundColor: '#FFF'
+          }}
+        >
+          <Picker
+            selectedValue={selectedMetric}
+            onValueChange={(itemValue) =>
+              setSelectedMetric(itemValue)
+            }
+          >
+            <Picker.Item label="Calories" value="calories" />
+            <Picker.Item label="Protein" value="protein" />
+            <Picker.Item label="Carbs" value="carbs" />
+            <Picker.Item label="Fat" value="fat" />
+            <Picker.Item label="Fiber" value="fiber" />
+          </Picker>
+        </View>
+
       </View>
 
-      <View style={styles.placeholderCard}>
-        <Text style={styles.placeholderTitle}>
-          Progress charts coming next
-        </Text>
+      {loadingProgress ? (
 
-        <Text style={styles.placeholderText}>
-          Weekly and monthly adherence analytics will appear here.
-        </Text>
+        <ActivityIndicator
+          size="large"
+          color="#005BB5"
+        />
+
+      ) : (
+
+        <View style={styles.chartCard}>
+          <BarChart
+            key={selectedMetric + selectedDuration}
+            data={getWeeklyChartData()}
+            barWidth={22}
+            spacing={26}
+            height={220}
+            disableScroll
+            initialSpacing={30}
+            endSpacing={30}
+            noOfSections={5}
+
+            stepValue={20}
+            hideRules
+            xAxisThickness={0}
+            yAxisThickness={0}
+            yAxisTextStyle={{
+              color: '#94A3B8',
+              fontSize: 10
+            }}
+            xAxisLabelTextStyle={{
+              color: '#64748B',
+              fontSize: 10
+            }}
+            maxValue={100}
+            frontColor="#159A8C"
+            barBorderTopLeftRadius={7}
+            barBorderTopRightRadius={7}
+            isAnimated
+
+            onPress={(item, index) => {
+
+              setSelectedPoint(item);
+
+              setTooltipPos({
+                x: 20 + (index * 48),
+                y: 15
+              });
+
+              clearTimeout(global.tooltipTimer);
+
+              global.tooltipTimer = setTimeout(() => {
+                setSelectedPoint(null);
+              }, 1800);
+            }}
+          />
+
+          {selectedPoint && (
+
+            <View
+              style={[
+                styles.floatingTooltip,
+                {
+                  left: tooltipPos.x,
+                  top: tooltipPos.y
+                }
+              ]}
+            >
+
+              <Text style={styles.floatingTooltipDate}>
+                {selectedPoint.date}
+              </Text>
+
+              <Text style={styles.floatingTooltipPercent}>
+                {selectedPoint.actualPercentage}%
+              </Text>
+              </View>
+            )}
+          </View>
+        )}
       </View>
-    </View>
   );
+  const getWeeklyChartData = () => {
+
+    const dates = Object.keys(progressData)
+      .sort()
+      .slice(-7);
+
+    return dates.map(date => {
+
+      const metricData =
+        progressData[date]?.[selectedMetric];
+
+      return {
+
+        value: Math.min(metricData?.actualPercentage || 0,100),
+
+        label: `${date.slice(8,10)}/${date.slice(5,7)}`,
+
+        actualPercentage:
+          metricData?.actualPercentage || 0,
+
+        date
+      };
+    });
+  };
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -321,7 +495,7 @@ export default function DietDetailScreen({ route, navigation }) {
       </View>
 
       <ScrollView style={{ flex: 1 }}>
-        {loading ? <ActivityIndicator size="large" color="#005BB5" style={{ marginTop: 50 }} /> : (activeTab === 'plan' ? renderPlanEditor() : activeTab=='monitor' ? renderAiMonitor() : renderProgress())}
+        {loading ? <ActivityIndicator size="large" color="#005BB5" style={{ marginTop: 50 }} /> : (activeTab === 'plan' ? renderPlanEditor() : activeTab === 'monitor' ? renderAiMonitor() : renderProgress())}
       </ScrollView>
 
       {/* ✅ NEW: FULL SCREEN IMAGE MODAL */}
@@ -339,7 +513,6 @@ export default function DietDetailScreen({ route, navigation }) {
     </View>
   );
 }
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F7FA' }, header: { backgroundColor: '#003366', padding: 20, paddingTop: 50, flexDirection: 'row', alignItems: 'center' }, backButton: { marginRight: 15, padding: 10 }, backButtonText: { color: '#FFF', fontSize: 28, fontWeight: 'bold' }, patientName: { color: '#FFF', fontSize: 22, fontWeight: '800' }, patientSub: { color: '#B0C4DE', fontSize: 12, marginTop: 3 },
   tabContainer: { flexDirection: 'row', padding: 15, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#E0E0E0' }, tab: { flex: 1, paddingVertical: 12, alignItems: 'center', borderBottomWidth: 3, borderBottomColor: 'transparent' }, activeTab: { borderBottomColor: '#005BB5' }, tabText: { color: '#999', fontWeight: '700', fontSize: 14 }, activeTabText: { color: '#005BB5', fontWeight: '800' }, contentPad: { padding: 20, paddingBottom: 40 }, sectionTitle: { fontSize: 16, fontWeight: '800', color: '#003366', marginBottom: 12, marginTop: 15 },
@@ -369,15 +542,41 @@ const styles = StyleSheet.create({
   editMacroInput: { flex: 1, backgroundColor: '#F0F4F8', borderWidth: 1, borderColor: '#005BB5', borderRadius: 4, textAlign: 'center', fontSize: 12, paddingVertical: 4, marginHorizontal: 10, fontWeight: 'bold', color: '#003366' }, editFeedbackInput: { backgroundColor: '#FFF', borderWidth: 1, borderColor: '#DDD', borderRadius: 6, padding: 10, fontSize: 13, minHeight: 60, textAlignVertical: 'top', marginTop: 5 },
   feedbackBox: { backgroundColor: '#E8F5E9', padding: 12, borderRadius: 8, borderLeftWidth: 4, borderLeftColor: '#4CAF50' }, warningBox: { backgroundColor: '#FFF3E0', borderLeftColor: '#FF9800' }, feedbackTitle: { fontWeight: '700', color: '#333', fontSize: 12, marginBottom: 5 }, feedbackText: { color: '#555', fontSize: 12, lineHeight: 18 },
   approveBtn: { backgroundColor: '#4CAF50', padding: 15, borderRadius: 8, alignItems: 'center', marginTop: 15 }, approveBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
-  progressControls: {flexDirection: 'row',justifyContent: 'space-between',marginBottom: 20,gap: 10},
+ 
+  chartCard: {
+  backgroundColor: '#FFF',
+  borderRadius: 14,
+  padding: 20,
+  borderWidth: 1,
+  borderColor: '#E5E5E5',
+  },
 
-progressBtn: {flex: 1,backgroundColor: '#E3F2FD',paddingVertical: 12,borderRadius: 8,alignItems: 'center'},
 
-progressBtnText: {color: '#005BB5',fontWeight: '700'},
+  floatingTooltip: {
+  position: 'absolute',
+  backgroundColor: '#081028',
+  paddingHorizontal: 14,
+  paddingVertical: 10,
+  borderRadius: 12,
+  alignItems: 'center',
+  zIndex: 999,
+  },
 
-placeholderCard: {backgroundColor: '#FFF',borderRadius: 12,padding: 25,alignItems: 'center',borderWidth: 1,borderColor: '#E5E5E5'},
+  floatingTooltipDate: {
+    color: '#CBD5E1',
+    fontSize: 10,
+    marginBottom: 2,
+  },
 
-placeholderTitle: {fontSize: 18,fontWeight: '800',color: '#003366',marginBottom: 10},
+  floatingTooltipPercent: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: '800',
+  },
 
-placeholderText: {textAlign: 'center',color: '#666',lineHeight: 22}
+  placeholderCard: {backgroundColor: '#FFF',borderRadius: 12,padding: 25,alignItems: 'center',borderWidth: 1,borderColor: '#E5E5E5'},
+
+  placeholderTitle: {fontSize: 18,fontWeight: '800',color: '#003366',marginBottom: 10},
+
+  placeholderText: {textAlign: 'center',color: '#666',lineHeight: 22}
 });
