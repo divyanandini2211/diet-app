@@ -1,12 +1,9 @@
 const User = require('../models/User');
-const DietPlan = require('../models/DietPlan');
-const masterDietChart = require('../data/masterDietData'); // Make sure this path is correct!
 const nodemailer = require('nodemailer');
 const jwt = require('jsonwebtoken');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkey123'; 
 
-// Helper to send email
 const sendOtpEmail = async (email, otp) => {
   const transporter = nodemailer.createTransport({
     service: 'gmail',
@@ -20,7 +17,7 @@ const sendOtpEmail = async (email, otp) => {
   });
 };
 
-// 1. FAST LOGIN
+// 1. FAST LOGIN (For switching between Patient and Dietitian easily)
 exports.login = async (req, res) => {
   try {
     const { phone, role, opId } = req.body;
@@ -34,31 +31,41 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: 'Invalid OP ID for this phone number.' });
     }
 
-    // Generate token
     const token = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET);
-
     res.status(200).json({ message: 'Login successful', user, token });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }
 };
 
-// 2. REQUEST OTP
+// 2. REQUEST OTP (For Brand New Users ONLY)
 exports.requestOtp = async (req, res) => {
   try {
-    const { email, phone } = req.body;
+    const { email, phone, name, role, opId, height, weight } = req.body;
     
     const existing = await User.findOne({ $or: [{ email }, { phone }] });
-    if (existing) {
+    
+    // Protects existing users from being overwritten!
+    if (existing && existing.isVerified) {
       return res.status(400).json({ message: 'Phone or Email is already registered. Please login.' });
     }
 
     const otp = Math.floor(1000 + Math.random() * 9000).toString();
     
+    if (existing) {
+      existing.otp = otp;
+      await existing.save();
+    } else {
+      const newUser = new User({
+        name, email, phone, role, opId, height, weight, otp, isVerified: false
+      });
+      await newUser.save();
+    }
+    
     try {
       await sendOtpEmail(email, otp);
     } catch (emailErr) {
-      console.log("Email not sent (Check .env credentials):", emailErr.message);
+      console.log("Email not sent:", emailErr.message);
     }
 
     res.status(200).json({ message: 'OTP sent to email!' });
@@ -67,35 +74,41 @@ exports.requestOtp = async (req, res) => {
   }
 };
 
-// 3. VERIFY OTP & REGISTER USER
+// 3. VERIFY OTP & CREATE ACCOUNT
 exports.registerUser = async (req, res) => {
   try {
-    const { name, email, phone, role, opId, height, weight, clientOtp, serverOtp } = req.body;
+    const { phone, clientOtp } = req.body;
 
-    if (clientOtp !== serverOtp) {
-      return res.status(400).json({ message: 'Invalid OTP.' });
+    console.log(`Verifying OTP for Phone: ${phone}. User typed: ${clientOtp}`);
+
+    if (!phone || !clientOtp) {
+      return res.status(400).json({ message: 'Phone number and OTP are required.' });
     }
 
-    // Create the user
-    const newUser = new User({
-      name, email, phone, role, opId, height, weight, isVerified: true
-    });
-    await newUser.save();
+    // Find the user by phone number
+    const user = await User.findOne({ phone: phone });
 
-    // 🚀 RESTORED LOGIC: Assign Personal Diet Plan to Patient
-    if (role === 'patient') {
-      const personalDietPlan = new DietPlan({
-        ...masterDietChart, 
-        patientId: newUser._id // Link it to this exact patient
-      });
-      await personalDietPlan.save();
+    if (!user) {
+      console.log(`❌ User with phone ${phone} not found in database!`);
+      return res.status(404).json({ message: 'Account not found. Please request a new OTP.' });
     }
 
-    // Generate token
-    const token = jwt.sign({ id: newUser._id, role: newUser.role }, JWT_SECRET);
+    console.log(`Database OTP is: ${user.otp}`);
 
-    res.status(201).json({ message: 'Account created & Diet Plan Assigned!', user: newUser, token });
+    if (user.otp !== clientOtp) {
+      return res.status(400).json({ message: 'Invalid OTP. Please try again.' });
+    }
+
+    // Success! Mark as verified and erase the OTP for security
+    user.isVerified = true;
+    user.otp = ''; 
+    await user.save();
+
+    const token = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET);
+    res.status(201).json({ message: 'Account created successfully!', user, token });
+
   } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+    console.log("REGISTER ERROR:", error);
+    res.status(500).json({ message: 'Server error: ' + error.message });
   }
 };

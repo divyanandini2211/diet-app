@@ -16,7 +16,6 @@ export default function LoginScreen({ navigation }) {
   
   const [otpSent, setOtpSent] = useState(false);
   const [userOtp, setUserOtp] = useState('');
-  const [generatedOtp, setGeneratedOtp] = useState(''); 
 
   const API_URL = `${process.env.EXPO_PUBLIC_API_URL}/api/auth`;
 
@@ -52,31 +51,42 @@ export default function LoginScreen({ navigation }) {
   };
 
   const handleRequestOtp = async () => {
-    if (!name || !email || !phone) return Alert.alert("Error", "Name, Email, and Phone are required.");
+    if (!name || !email || !phone) return Alert.alert("Missing Info", "Name, Email, and Phone are required.");
+    if (role === 'patient' && !opId) return Alert.alert("Missing Info", "Please enter your OP / IP Number.");
+
     try {
-      const res = await axios.post(`${API_URL}/request-otp`, { email, phone });
-      setGeneratedOtp(res.data.testOtp); 
+      // ✅ FIXED: Send ALL user details to the backend so it can save them temporarily!
+      const res = await axios.post(`${API_URL}/request-otp`, { 
+        name, email, phone, role, opId, height, weight 
+      });
+      
       setOtpSent(true);
-      Alert.alert("OTP Sent", `Check your email. (Test code: ${res.data.testOtp})`);
+      Alert.alert("OTP Sent", "Check your email for the code.");
     } catch (error) {
       Alert.alert("Error", error.response?.data?.message || "Could not send OTP.");
     }
   };
 
   const handleVerifyAndRegister = async () => {
+    if (!phone || !userOtp) return Alert.alert("Error", "Phone and OTP are required.");
+
     try {
+      // ✅ FIXED: Only send Phone and OTP. The backend will verify and approve the account!
       const res = await axios.post(`${API_URL}/register`, {
-        name, email, phone, role, opId, height, weight, clientOtp: userOtp, serverOtp: generatedOtp
+        phone: phone, 
+        clientOtp: userOtp 
       });
       
       const userData = res.data.user;
       await AsyncStorage.setItem('userData', JSON.stringify(userData)); // Save to memory!
 
-      Alert.alert("Success", "Account created!");
+      Alert.alert("Success", "Account created successfully!");
+      
       if (userData.role === 'dietitian') navigation.replace('DietitianDashboard', { user: userData });
       else navigation.replace('PatientNavigation', { user: userData });
 
     } catch (error) {
+      console.log("Verify Error:", error.response?.data || error.message);
       Alert.alert("Error", error.response?.data?.message || "Invalid OTP");
     }
   };
@@ -117,7 +127,7 @@ export default function LoginScreen({ navigation }) {
                 {!isLogin && (
                   <>
                     <TextInput style={styles.input} placeholder="Full Name" value={name} onChangeText={setName} />
-                    <TextInput style={styles.input} placeholder="Email (For OTP)" value={email} onChangeText={setEmail} autoCapitalize="none" />
+                    <TextInput style={styles.input} placeholder="Email (For OTP)" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
                     {role === 'patient' && (
                       <View style={styles.row}>
                         <TextInput style={[styles.input, styles.halfInput]} placeholder="Height (cm)" value={height} onChangeText={setHeight} keyboardType="numeric" />
