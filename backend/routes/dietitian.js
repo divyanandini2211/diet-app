@@ -136,7 +136,7 @@ router.delete('/cleanup/all-diet-plans', async (req, res) => {
 // --- ✅ KEPT YOUR CUSTOM PROGRESS ANALYTICS ROUTE! ---
 router.get('/patient/:id/progress', async (req, res) => {
   try {
-    const logs = await DailyLog.find({ patientId: req.params.id });
+    const logs = await DailyLog.find({patientId: req.params.id,approvalStatus: 'APPROVED'});
     const dailyStats = {};
 
     logs.forEach(log => {
