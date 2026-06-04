@@ -144,6 +144,19 @@ export default function DietDetailScreen({ route, navigation }) {
       <View style={styles.contentPad}>
         
         {/* ✅ THE DROPDOWN TEMPLATE SELECTOR IS BACK! */}
+        <View style={styles.activeDietCard}>
+
+            <Text style={styles.activeDietLabel}>
+                CURRENT ACTIVE DIET
+            </Text>
+
+            <Text style={styles.activeDietName}>
+                {
+                dietPlan?.dietCategory || 'Not Assigned'
+                }
+            </Text>
+
+        </View>
         <Text style={styles.sectionTitle}>📋 Select Clinical Template</Text>
         <View style={styles.pickerContainer}>
           <Picker
@@ -242,18 +255,35 @@ export default function DietDetailScreen({ route, navigation }) {
                 <View style={styles.macroTable}>
                   <View style={styles.macroHeaderRow}>
                     <Text style={[styles.macroCell, { fontWeight: 'bold' }]}>Macro</Text>
-                    <Text style={[styles.macroCell, { fontWeight: 'bold' }]}>Target</Text>
-                    <Text style={[styles.macroCell, { fontWeight: 'bold' }]}>Actual</Text>
+                    <Text style={[styles.macroCell, { fontWeight: 'bold' }]}>Consumed (gm)</Text>
                   </View>
                   {['calories', 'protein', 'carbs', 'fat', 'fiber'].map(macro => (
                     <View key={macro} style={styles.macroDataRow}>
-                      <Text style={styles.macroCell}>{macro.charAt(0).toUpperCase() + macro.slice(1)}</Text>
-                      <Text style={styles.macroCell}>{log.prescribedMacros?.[macro] || 0}</Text>
+
+                      <Text style={styles.macroCell}>
+                        {macro.charAt(0).toUpperCase() + macro.slice(1)}
+                      </Text>
+
                       {isPending ? (
-                        <TextInput style={styles.editMacroInput} keyboardType="numeric" value={log.actualMacros?.[macro] !== undefined && log.actualMacros?.[macro] !== '' ? String(log.actualMacros[macro]) : ''} onChangeText={(val) => handleMacroChange(log._id, macro, val)} />
+                        <TextInput
+                          style={styles.editMacroInput}
+                          keyboardType="numeric"
+                          value={
+                            log.actualMacros?.[macro] !== undefined &&
+                            log.actualMacros?.[macro] !== ''
+                              ? String(log.actualMacros[macro])
+                              : ''
+                          }
+                          onChangeText={(val) =>
+                            handleMacroChange(log._id, macro, val)
+                          }
+                        />
                       ) : (
-                        <Text style={[styles.macroCell, styles.actualValue]}>{log.actualMacros?.[macro] || 0}</Text>
+                        <Text style={[styles.macroCell, styles.actualValue]}>
+                          {log.actualMacros?.[macro] || 0}
+                        </Text>
                       )}
+
                     </View>
                   ))}
                 </View>
@@ -338,7 +368,28 @@ const styles = StyleSheet.create({
   fullScreenBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center' }, fullScreenImg: { width: '100%', height: '80%' }, closeImageBtn: { position: 'absolute', top: 50, right: 20, zIndex: 10, backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 8 }, closeImageText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
   logDetails: { padding: 15 }, detectedTitle: { fontWeight: '700', color: '#003366', fontSize: 13, marginBottom: 5 }, detectedItems: { color: '#555', fontSize: 13, marginBottom: 15 },
   macroTable: { borderRadius: 8, borderWidth: 1, borderColor: '#DDD', overflow: 'hidden', marginBottom: 15 }, macroHeaderRow: { flexDirection: 'row', backgroundColor: '#F0F0F0', paddingVertical: 10 }, macroDataRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#EEE' }, macroCell: { flex: 1, textAlign: 'center', fontSize: 12, color: '#333' }, actualValue: { fontWeight: '700', color: '#005BB5' },
-  editMacroInput: { flex: 1, backgroundColor: '#F0F4F8', borderWidth: 1, borderColor: '#005BB5', borderRadius: 4, textAlign: 'center', fontSize: 12, paddingVertical: 4, marginHorizontal: 10, fontWeight: 'bold', color: '#003366' }, editFeedbackInput: { backgroundColor: '#FFF', borderWidth: 1, borderColor: '#DDD', borderRadius: 6, padding: 10, fontSize: 13, minHeight: 60, textAlignVertical: 'top', marginTop: 5 },
+  editMacroInput: { width: 80, backgroundColor: '#F0F4F8', borderWidth: 1, borderColor: '#005BB5', borderRadius: 4, textAlign: 'center', fontSize: 12, paddingVertical: 4, marginHorizontal: 10, fontWeight: 'bold', color: '#003366' }, editFeedbackInput: { backgroundColor: '#FFF', borderWidth: 1, borderColor: '#DDD', borderRadius: 6, padding: 10, fontSize: 13, minHeight: 60, textAlignVertical: 'top', marginTop: 5 },
   feedbackBox: { backgroundColor: '#E8F5E9', padding: 12, borderRadius: 8, borderLeftWidth: 4, borderLeftColor: '#4CAF50' }, warningBox: { backgroundColor: '#FFF3E0', borderLeftColor: '#FF9800' }, feedbackTitle: { fontWeight: '700', color: '#333', fontSize: 12, marginBottom: 5 }, feedbackText: { color: '#555', fontSize: 12, lineHeight: 18 },
-  approveBtn: { backgroundColor: '#4CAF50', padding: 15, borderRadius: 8, alignItems: 'center', marginTop: 15 }, approveBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 }
+  approveBtn: { backgroundColor: '#4CAF50', padding: 15, borderRadius: 8, alignItems: 'center', marginTop: 15 }, approveBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
+  activeDietCard: {
+      backgroundColor: '#003B7A',
+      padding: 18,
+      borderRadius: 16,
+      marginBottom: 22,
+      elevation: 3,
+  },
+
+  activeDietLabel: {
+      color: '#AFCBFF',
+      fontSize: 11,
+      fontWeight: '700',
+      letterSpacing: 1,
+      marginBottom: 6,
+  },
+
+  activeDietName: {
+      color: '#FFFFFF',
+      fontSize: 24,
+      fontWeight: '800',
+  }
 });

@@ -1,6 +1,7 @@
 
-    import React, { useState, useEffect } from 'react';
-
+    import React, { useState, useEffect, useRef } from 'react';
+    import CircularProgress from 'react-native-circular-progress-indicator';
+    import { Animated } from 'react-native';
     import {
     View,
     Text,
@@ -21,7 +22,7 @@
 
     const [progressData, setProgressData] = useState({});
     const [selectedMetric, setSelectedMetric] = useState('protein');
-    const [selectedDuration, setSelectedDuration] = useState('weekly');
+    const [selectedDuration, setSelectedDuration] = useState('daily');
     const [loadingProgress, setLoadingProgress] = useState(false);
     const [selectedPoint, setSelectedPoint] = useState(null);
     const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
@@ -31,7 +32,10 @@
     x: 0,
     y: 0
     });
-
+    const proteinAnim = useRef(new Animated.Value(0)).current;
+    const carbsAnim = useRef(new Animated.Value(0)).current;
+    const fatAnim = useRef(new Animated.Value(0)).current;
+    const fiberAnim = useRef(new Animated.Value(0)).current;
     const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
     useEffect(() => {
@@ -49,6 +53,34 @@
         );
 
         setProgressData(res.data);
+        const todayData = res.data?.today;
+
+        if (todayData) {
+
+            Animated.timing(proteinAnim, {
+                toValue: Math.min(todayData.protein?.actualPercentage || 0, 100),
+                duration: 600,
+                useNativeDriver: false
+            }).start();
+
+            Animated.timing(carbsAnim, {
+                toValue: Math.min(todayData.carbs?.actualPercentage || 0, 100),
+                duration: 600,
+                useNativeDriver: false
+            }).start();
+
+            Animated.timing(fatAnim, {
+                toValue: Math.min(todayData.fat?.actualPercentage || 0, 100),
+                duration: 600,
+                useNativeDriver: false
+            }).start();
+
+            Animated.timing(fiberAnim, {
+                toValue: Math.min(todayData.fiber?.actualPercentage || 0, 100),
+                duration: 600,
+                useNativeDriver: false
+            }).start();
+        }
 
         } catch (error) {
 
@@ -236,6 +268,11 @@
                 }
             >
                 <Picker.Item
+                label="Daily"
+                value="daily"
+                />
+
+                <Picker.Item
                 label="Weekly"
                 value="weekly"
                 />
@@ -305,6 +342,145 @@
         ) : (
 
             <View style={styles.chartCard}>
+            {selectedDuration === 'daily' && (
+
+            <View style={styles.progressCard}>
+
+                <Text style={styles.progressTitle}>
+                    📈 Daily Progress
+                </Text>
+
+                <View style={styles.calorieRow}>
+
+                    <View style={styles.circularProgressContainer}>
+
+                        <CircularProgress
+                            value={
+                                Math.round(
+                                    progressData?.today?.calories?.actual || 0
+                                )
+                            }
+                            radius={55}
+                            maxValue={
+                                progressData?.today?.calories?.target || 1500
+                            }
+                            activeStrokeColor={'#005BB5'}
+                            inActiveStrokeColor={'#E0E0E0'}
+                            activeStrokeWidth={10}
+                            inActiveStrokeWidth={10}
+                            showProgressValue={false}
+                            title={"CALORIES"}
+                            titleColor={'#666'}
+                            titleStyle={{
+                                fontWeight: '700',
+                                fontSize: 12
+                            }}
+                        />
+
+                    </View>
+
+                    <View style={styles.calorieTextColumn}>
+
+                        <Text style={styles.calorieCount}>
+                            {
+                            Math.round(
+                                progressData?.today?.calories?.actual || 0
+                            )
+                            }
+                        </Text>
+
+                        <Text style={styles.calorieTarget}>
+                            / {
+                            progressData?.today?.calories?.target || 0
+                            }
+                        </Text>
+
+                        <Text style={styles.calorieUnit}>
+                            KCAL
+                        </Text>
+
+                    </View>
+
+                </View>
+
+                <View style={styles.macroBarContainer}>
+
+                {[
+                    {
+                        key:'protein',
+                        anim:proteinAnim
+                    },
+                    {
+                        key:'carbs',
+                        anim:carbsAnim
+                    },
+                    {
+                        key:'fat',
+                        anim:fatAnim
+                    },
+                    {
+                        key:'fiber',
+                        anim:fiberAnim
+                    }
+                ].map((item) => {
+
+                    const metricData =
+                        progressData?.today?.[item.key];
+
+                    return (
+
+                    <View
+                        key={item.key}
+                        style={styles.macroBarRow}
+                    >
+
+                        <Text style={styles.macroBarLabel}>
+                            {
+                            item.key.charAt(0).toUpperCase() +
+                            item.key.slice(1)
+                            }
+                        </Text>
+
+                        <View style={styles.barBackground}>
+
+                            <Animated.View
+                                style={[
+                                styles.barFill,
+                                {
+                                    width:
+                                    item.anim.interpolate({
+                                        inputRange: [0,100],
+                                        outputRange: ['0%','100%']
+                                    }),
+
+                                    backgroundColor:
+                                    item.key === 'fat' &&
+                                    (metricData?.actual || 0) >
+                                    (metricData?.target || 0)
+                                    ? '#D32F2F'
+                                    : '#005BB5'
+                                }
+                                ]}
+                            />
+
+                        </View>
+
+                        <Text style={styles.macroBarValue}>
+                            {
+                            metricData?.actual || 0
+                            }g / {
+                            metricData?.target || 0
+                            }g
+                        </Text>
+
+                    </View>
+                    );
+                })}
+
+                </View>
+
+            </View>
+            )}
             {selectedDuration === 'weekly' && (
             <BarChart
                 key={
@@ -706,6 +882,23 @@
     color: '#159A8C',
     fontSize: 11,
     fontWeight: '600',
-    }
+    },
+    progressCard: { backgroundColor: '#FFFFFF', padding: 20, borderRadius: 12, elevation: 3, marginBottom: 30 },
+    progressTitle: { color: '#003366', fontWeight: '800', fontSize: 16, marginBottom: 20 },
+    
+    calorieRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 25 },
+    circularProgressContainer: { alignItems: 'center', justifyContent: 'center' },
+    
+    calorieTextColumn: { alignItems: 'flex-end' },
+    calorieCount: { fontSize: 32, fontWeight: '800' },
+    calorieTarget: { fontSize: 16, fontWeight: '600', color: '#666' },
+    calorieUnit: { fontSize: 11, fontWeight: '700', color: '#999', marginTop: 4 },
+    
+    macroBarContainer: { gap: 14 },
+    macroBarRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    macroBarLabel: { width: 60, fontWeight: '600', color: '#333', fontSize: 13 },
+    barBackground: { flex: 1, height: 8, backgroundColor: '#E0E0E0', borderRadius: 4, overflow: 'hidden' },
+    barFill: { height: '100%', borderRadius: 4 },
+    macroBarValue: { minWidth: 85, textAlign: 'right', fontWeight: '700', fontSize: 12 }
     });
 

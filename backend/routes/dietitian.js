@@ -159,20 +159,67 @@ router.get('/patient/:id/progress', async (req, res) => {
     });
 
     const progressData = {};
+    const todayDate = new Date().toISOString().split('T')[0];
     for (const date in dailyStats) {
+
       progressData[date] = {};
-      ['calories', 'protein', 'carbs', 'fat', 'fiber'].forEach(metric => {
-        const actual = dailyStats[date].actual[metric];
-        const prescribed = dailyStats[date].prescribed[metric];
-        const percentage = prescribed > 0 ? Math.round((actual / prescribed) * 100) : 0;
+
+      ['calories', 'protein', 'carbs', 'fat', 'fiber']
+      .forEach(metric => {
+
+        const actual =
+          dailyStats[date].actual[metric];
+
+        const prescribed =
+          dailyStats[date].prescribed[metric];
+
+        const percentage =
+          prescribed > 0
+          ? Math.round((actual / prescribed) * 100)
+          : 0;
 
         progressData[date][metric] = {
+
+          actual,
+          target: prescribed,
           actualPercentage: percentage,
           chartPercentage: Math.min(percentage, 100)
         };
       });
     }
+    progressData.today =
+      progressData[todayDate] || {
 
+        calories: {
+          actual: 0,
+          target: 0,
+          actualPercentage: 0
+        },
+
+        protein: {
+          actual: 0,
+          target: 0,
+          actualPercentage: 0
+        },
+
+        carbs: {
+          actual: 0,
+          target: 0,
+          actualPercentage: 0
+        },
+
+        fat: {
+          actual: 0,
+          target: 0,
+          actualPercentage: 0
+        },
+
+        fiber: {
+          actual: 0,
+          target: 0,
+          actualPercentage: 0
+        }
+    };
     res.json(progressData);
   } catch (error) {
     console.error('Progress Route Error:', error);
