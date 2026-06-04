@@ -18,7 +18,7 @@ export default function LoginScreen({ navigation }) {
   const [userOtp, setUserOtp] = useState('');
 
   const API_URL = `${process.env.EXPO_PUBLIC_API_URL}/api/auth`;
-  console.log(API_URL);
+  
 
   // Auto-login check
   useEffect(() => {
