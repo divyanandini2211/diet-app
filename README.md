@@ -102,7 +102,7 @@ food/
 - New patients register with Name, Email, Phone, OP ID, Height, Weight
 - OTP (4-digit) is sent via email and expires after single use
 - Returning users log in via Phone + OP ID (fast login, no OTP)
-- Dietitians log in via Phone + OTP
+- Dietitians log in via Phone 
 - On success, a JWT is issued and stored locally via AsyncStorage
 
 ### 2. Diet Management Module (Dietitian)
