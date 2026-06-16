@@ -4,12 +4,16 @@ const jwt = require('jsonwebtoken');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkey123'; 
 
-// HELPER: Send Email
+// 📧 REAL EMAIL SETUP
 const sendOtpEmail = async (email, otp) => {
   const transporter = nodemailer.createTransport({
     service: 'gmail',
-    auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
+    auth: { 
+      user: process.env.EMAIL_USER, 
+      pass: process.env.EMAIL_PASS 
+    }
   });
+  
   await transporter.sendMail({
     from: process.env.EMAIL_USER,
     to: email,
@@ -18,12 +22,12 @@ const sendOtpEmail = async (email, otp) => {
   });
 };
 
-// 1. FAST LOGIN
+// 1. 🚀 FAST LOGIN
 exports.login = async (req, res) => {
   try {
     const { phone, role, opId } = req.body;
     
-    // Clean inputs just in case
+    // Clean inputs to prevent invisible space bugs
     const cleanPhone = phone ? phone.toString().trim() : '';
 
     const user = await User.findOne({ phone: cleanPhone, role });
@@ -31,7 +35,7 @@ exports.login = async (req, res) => {
       return res.status(404).json({ message: 'User not found. Please sign up as a new user.' });
     }
 
-    // 🛑 THE FIX: Block unverified ghost users!
+    // 🛑 SECURITY BLOCK: Stop unverified "Ghost" users from logging in!
     if (!user.isVerified) {
       return res.status(403).json({ message: 'Account not verified. Please sign up and enter your OTP.' });
     }
@@ -47,8 +51,7 @@ exports.login = async (req, res) => {
   }
 };
 
-// 2. REQUEST OTP
-// 2. REQUEST OTP (BULLETPROOF PROTOTYPE VERSION)
+// 2. 📨 REQUEST OTP (REAL SECURITY)
 exports.requestOtp = async (req, res) => {
   try {
     const { email, phone, name, role, opId, height, weight } = req.body;
@@ -58,36 +61,52 @@ exports.requestOtp = async (req, res) => {
 
     const existing = await User.findOne({ $or: [{ email: cleanEmail }, { phone: cleanPhone }] });
     
+    // If user is already fully registered and verified, tell them to just log in
     if (existing && existing.isVerified) {
       return res.status(400).json({ message: 'Phone or Email is already registered. Please login.' });
     }
 
+    // Generate strict 4-digit OTP
     const otp = Math.floor(1000 + Math.random() * 9000).toString();
     
+    let isNewUser = false;
+
     if (existing) {
       existing.otp = otp;
       existing.name = name || existing.name;
       existing.opId = opId || existing.opId;
       await existing.save();
     } else {
+      isNewUser = true;
       const newUser = new User({
-        name, email: cleanEmail, phone: cleanPhone, role, opId, height, weight, otp, isVerified: false
+        name, 
+        email: cleanEmail, 
+        phone: cleanPhone, 
+        role, 
+        opId, 
+        height, 
+        weight, 
+        otp, 
+        isVerified: false // ⏳ Puts them in the "Waiting Room"
       });
       await newUser.save();
     }
     
     try {
-      // Try to send the email...
+      // 🚀 SEND THE REAL EMAIL
       await sendOtpEmail(cleanEmail, otp);
-      return res.status(200).json({ message: 'OTP sent to your email!' });
+      return res.status(200).json({ message: 'OTP successfully sent to your email!' });
       
     } catch (emailErr) {
-      console.log("Google blocked the email! Bypassing for prototype...");
+      console.log("Nodemailer failed:", emailErr.message);
       
-      // 🔥 THE CLINICAL TRIAL HACK: If email fails, send the OTP back to the phone!
-      return res.status(200).json({ 
-        message: `Email failed, but for testing, your OTP is: ${otp}` 
-      });
+      // 🧹 GHOST CLEANUP: If Google fails to send the email, delete the unverified user!
+      if (isNewUser) {
+        await User.findOneAndDelete({ email: cleanEmail });
+        console.log("Deleted ghost user because email failed to send.");
+      }
+      
+      return res.status(500).json({ message: 'Failed to send OTP email. Please check your email address and try again.' });
     }
 
   } catch (error) {
@@ -95,7 +114,7 @@ exports.requestOtp = async (req, res) => {
   }
 };
 
-// 3. VERIFY OTP & CREATE ACCOUNT
+// 3. ✅ VERIFY OTP & CREATE ACCOUNT
 exports.registerUser = async (req, res) => {
   try {
     const { phone, clientOtp } = req.body;
@@ -104,31 +123,24 @@ exports.registerUser = async (req, res) => {
       return res.status(400).json({ message: 'Phone number and OTP are required.' });
     }
 
-    // 🛠️ BUG FIX: Clean the phone number of any accidental spaces!
+    // Clean inputs
     const cleanPhone = phone.toString().trim();
     const cleanOtp = clientOtp.toString().trim();
-    
-    console.log(`\n🔍 VERIFYING: phone='${cleanPhone}', otp='${cleanOtp}'`);
 
-    // Search using the clean phone number
     const user = await User.findOne({ phone: cleanPhone });
 
     if (!user) {
-      console.log(`❌ FAILED: Could not find phone '${cleanPhone}' in database!`);
       return res.status(404).json({ message: 'Account not found. Please request a new OTP.' });
     }
 
     if (!user.otp || user.otp !== cleanOtp) {
-      console.log(`❌ FAILED: DB OTP is '${user.otp}', but user typed '${cleanOtp}'`);
       return res.status(400).json({ message: 'Invalid OTP. Please try again.' });
     }
 
-    // Success! Mark as verified and erase the OTP for security
+    // 🏆 SUCCESS! Mark as verified and erase the OTP so hackers can't reuse it
     user.isVerified = true;
     user.otp = ''; 
     await user.save();
-
-    console.log(`✅ SUCCESS: User ${user.name} is now verified!`);
 
     const token = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET);
     res.status(201).json({ message: 'Account created successfully!', user, token });

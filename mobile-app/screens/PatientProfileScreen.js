@@ -52,17 +52,17 @@ export default function PatientProfileScreen({ route, navigation }) {
         {/* Info Items */}
         <View style={styles.infoSection}>
           <View style={styles.infoItem}>
-            <Text style={styles.infoLabel}>📋 OP ID</Text>
+            <Text style={styles.infoLabel}> OP ID</Text>
             <Text style={styles.infoValue}>{patient?.opId || 'N/A'}</Text>
           </View>
 
           <View style={styles.infoItem}>
-            <Text style={styles.infoLabel}>📏 Height</Text>
+            <Text style={styles.infoLabel}> Height</Text>
             <Text style={styles.infoValue}>{patient?.height || 'N/A'} cm</Text>
           </View>
 
           <View style={styles.infoItem}>
-            <Text style={styles.infoLabel}>⚖️ Weight</Text>
+            <Text style={styles.infoLabel}> Weight</Text>
             <Text style={styles.infoValue}>{patient?.weight || 'N/A'} kg</Text>
           </View>
         </View>
@@ -70,7 +70,7 @@ export default function PatientProfileScreen({ route, navigation }) {
 
       {/* Logout Button */}
       <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        <Text style={styles.logoutText}>🚪 Logout</Text>
+        <Text style={styles.logoutText}>Logout</Text>
       </TouchableOpacity>
     </SafeAreaView>
   );

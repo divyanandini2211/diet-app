@@ -39,7 +39,7 @@ export default function DietitianProfileScreen({ route, navigation }) {
           <Text style={styles.name}>{user?.name || 'Dietitian'}</Text>
           <Text style={styles.email}>{user?.phone || 'N/A'}</Text> 
           <View style={styles.roleBadge}>
-            <Text style={styles.roleText}>👨‍⚕️ Dietitian</Text>
+            <Text style={styles.roleText}> Dietitian</Text>
           </View>
         </View>
 
@@ -59,7 +59,7 @@ export default function DietitianProfileScreen({ route, navigation }) {
 
       {/* Logout Button */}
       <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        <Text style={styles.logoutText}>🚪 Logout</Text>
+        <Text style={styles.logoutText}> Logout</Text>
       </TouchableOpacity>
     </SafeAreaView>
   );

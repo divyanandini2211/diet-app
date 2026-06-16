@@ -16,6 +16,9 @@ export default function LoginScreen({ navigation }) {
   
   const [otpSent, setOtpSent] = useState(false);
   const [userOtp, setUserOtp] = useState('');
+  
+  // 🔥 NEW: Loading state to prevent 10 clicks!
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
 
   const API_URL = `${process.env.EXPO_PUBLIC_API_URL}/api/auth`;
   
@@ -61,14 +64,20 @@ export default function LoginScreen({ navigation }) {
     if (role === 'patient' && !opId) return Alert.alert("Missing Info", "Please enter your OP / IP Number.");
 
     try {
+      setIsSendingOtp(true); // 🔥 Disable button and show "Sending..."
+
       const res = await axios.post(`${API_URL}/request-otp`, { 
         name, email, phone, role, opId, height, weight 
       });
       
       setOtpSent(true);
-      Alert.alert("OTP Sent", "Check your email for the code.");
+      // 🔥 Show the exact message from the backend!
+      Alert.alert("Notice", res.data.message); 
+      
     } catch (error) {
       Alert.alert("Error", error.response?.data?.message || "Could not send OTP.");
+    } finally {
+      setIsSendingOtp(false); // 🔥 Re-enable the button
     }
   };
 
@@ -192,8 +201,15 @@ export default function LoginScreen({ navigation }) {
                   </>
                 )}
 
-                <TouchableOpacity style={styles.submitBtn} onPress={isLogin ? handleFastLogin : handleRequestOtp}>
-                  <Text style={styles.submitText}>{isLogin ? 'Sign In' : 'Get OTP'}</Text>
+                {/* 🔥 NEW: Button that turns Gray and disables when loading */}
+                <TouchableOpacity 
+                  style={[styles.submitBtn, isSendingOtp && { backgroundColor: '#888888' }]} 
+                  onPress={isLogin ? handleFastLogin : handleRequestOtp}
+                  disabled={isSendingOtp}
+                >
+                  <Text style={styles.submitText}>
+                    {isSendingOtp ? 'Sending OTP...' : (isLogin ? 'Sign In' : 'Get OTP')}
+                  </Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity style={styles.toggleContainer} onPress={() => setIsLogin(!isLogin)}>
