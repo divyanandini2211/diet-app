@@ -19,7 +19,8 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.divya2211.mobileapp"
     },
     "web": {
       "output": "static",
@@ -28,6 +29,12 @@
     "plugins": [
       "expo-font",
       "expo-router"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "a5091fa9-ed61-40c0-b94f-33af9d9b35c2"
+      }
+    }
   }
 }

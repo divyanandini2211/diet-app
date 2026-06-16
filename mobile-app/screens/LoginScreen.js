@@ -19,7 +19,6 @@ export default function LoginScreen({ navigation }) {
 
   const API_URL = `${process.env.EXPO_PUBLIC_API_URL}/api/auth`;
   
-
   // Auto-login check
   useEffect(() => {
     checkLogin();
@@ -42,12 +41,18 @@ export default function LoginScreen({ navigation }) {
       const res = await axios.post(`${API_URL}/login`, { phone, role, opId });
       const userData = res.data.user;
 
-      await AsyncStorage.setItem('userData', JSON.stringify(userData)); // Save to memory!
+      await AsyncStorage.setItem('userData', JSON.stringify(userData)); 
 
       if (userData.role === 'dietitian') navigation.replace('DietitianDashboard', { user: userData });
       else navigation.replace('PatientNavigation', { user: userData });
     } catch (error) {
-      Alert.alert("Login Failed", error.response?.data?.message || "User not found.");
+      // 🛑 FRONTEND FIX: Handle the Unverified Ghost User!
+      if (error.response?.status === 403) {
+        Alert.alert("Not Verified", "You haven't verified your account yet. Please sign up to receive your OTP.");
+        setIsLogin(false); // Magically switch them to the Sign Up screen!
+      } else {
+        Alert.alert("Login Failed", error.response?.data?.message || "User not found.");
+      }
     }
   };
 
@@ -56,7 +61,6 @@ export default function LoginScreen({ navigation }) {
     if (role === 'patient' && !opId) return Alert.alert("Missing Info", "Please enter your OP / IP Number.");
 
     try {
-      // ✅ FIXED: Send ALL user details to the backend so it can save them temporarily!
       const res = await axios.post(`${API_URL}/request-otp`, { 
         name, email, phone, role, opId, height, weight 
       });
@@ -72,14 +76,13 @@ export default function LoginScreen({ navigation }) {
     if (!phone || !userOtp) return Alert.alert("Error", "Phone and OTP are required.");
 
     try {
-      // ✅ FIXED: Only send Phone and OTP. The backend will verify and approve the account!
       const res = await axios.post(`${API_URL}/register`, {
         phone: phone, 
         clientOtp: userOtp 
       });
       
       const userData = res.data.user;
-      await AsyncStorage.setItem('userData', JSON.stringify(userData)); // Save to memory!
+      await AsyncStorage.setItem('userData', JSON.stringify(userData)); 
 
       Alert.alert("Success", "Account created successfully!");
       
@@ -116,23 +119,74 @@ export default function LoginScreen({ navigation }) {
           <View style={styles.formContainer}>
             {otpSent ? (
               <>
-                <TextInput style={[styles.input, styles.otpInput]} placeholder="• • • •" value={userOtp} onChangeText={setUserOtp} keyboardType="numeric" maxLength={4} />
+                <TextInput 
+                  style={[styles.input, styles.otpInput]} 
+                  placeholder="• • • •" 
+                  placeholderTextColor="#888888"
+                  value={userOtp} 
+                  onChangeText={setUserOtp} 
+                  keyboardType="numeric" 
+                  maxLength={4} 
+                />
                 <TouchableOpacity style={styles.submitBtn} onPress={handleVerifyAndRegister}><Text style={styles.submitText}>Verify & Create Account</Text></TouchableOpacity>
                 <TouchableOpacity style={styles.toggleContainer} onPress={() => setOtpSent(false)}><Text style={styles.toggleTextAction}>Cancel</Text></TouchableOpacity>
               </>
             ) : (
               <>
-                <TextInput style={styles.input} placeholder="Mobile Number" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
-                {role === 'patient' && <TextInput style={styles.input} placeholder="OP / IP Number" value={opId} onChangeText={setOpId} />}
+                <TextInput 
+                  style={styles.input} 
+                  placeholder="Mobile Number" 
+                  placeholderTextColor="#888888"
+                  value={phone} 
+                  onChangeText={setPhone} 
+                  keyboardType="phone-pad" 
+                />
+                {role === 'patient' && (
+                  <TextInput 
+                    style={styles.input} 
+                    placeholder="OP / IP Number" 
+                    placeholderTextColor="#888888"
+                    value={opId} 
+                    onChangeText={setOpId} 
+                  />
+                )}
 
                 {!isLogin && (
                   <>
-                    <TextInput style={styles.input} placeholder="Full Name" value={name} onChangeText={setName} />
-                    <TextInput style={styles.input} placeholder="Email (For OTP)" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
+                    <TextInput 
+                      style={styles.input} 
+                      placeholder="Full Name" 
+                      placeholderTextColor="#888888"
+                      value={name} 
+                      onChangeText={setName} 
+                    />
+                    <TextInput 
+                      style={styles.input} 
+                      placeholder="Email (For OTP)" 
+                      placeholderTextColor="#888888"
+                      value={email} 
+                      onChangeText={setEmail} 
+                      autoCapitalize="none" 
+                      keyboardType="email-address" 
+                    />
                     {role === 'patient' && (
                       <View style={styles.row}>
-                        <TextInput style={[styles.input, styles.halfInput]} placeholder="Height (cm)" value={height} onChangeText={setHeight} keyboardType="numeric" />
-                        <TextInput style={[styles.input, styles.halfInput]} placeholder="Weight (kg)" value={weight} onChangeText={setWeight} keyboardType="numeric" />
+                        <TextInput 
+                          style={[styles.input, styles.halfInput]} 
+                          placeholder="Height (cm)" 
+                          placeholderTextColor="#888888"
+                          value={height} 
+                          onChangeText={setHeight} 
+                          keyboardType="numeric" 
+                        />
+                        <TextInput 
+                          style={[styles.input, styles.halfInput]} 
+                          placeholder="Weight (kg)" 
+                          placeholderTextColor="#888888"
+                          value={weight} 
+                          onChangeText={setWeight} 
+                          keyboardType="numeric" 
+                        />
                       </View>
                     )}
                   </>
@@ -158,7 +212,7 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#FFFFFF' }, container: { flex: 1 }, scrollContent: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 40 },
   headerContainer: { marginBottom: 40, alignItems: 'center' }, title: { fontSize: 28, fontWeight: '700', color: '#003366', marginBottom: 8 }, subtitle: { fontSize: 15, color: '#666666' },
   roleContainer: { flexDirection: 'row', backgroundColor: '#F0F4F8', borderRadius: 8, padding: 4, marginBottom: 30 }, roleButton: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 6 }, activeRole: { backgroundColor: '#005BB5' }, roleText: { fontWeight: '600', color: '#666666' }, activeRoleText: { color: '#FFFFFF' },
-  formContainer: { width: '100%' }, input: { backgroundColor: '#FAFAFA', padding: 16, borderRadius: 8, marginBottom: 16, borderWidth: 1, borderColor: '#E0E0E0', fontSize: 15 }, row: { flexDirection: 'row', justifyContent: 'space-between' }, halfInput: { width: '48%' },
+  formContainer: { width: '100%' }, input: { backgroundColor: '#FAFAFA', padding: 16, borderRadius: 8, marginBottom: 16, borderWidth: 1, borderColor: '#E0E0E0', fontSize: 15, color: '#333' }, row: { flexDirection: 'row', justifyContent: 'space-between' }, halfInput: { width: '48%' },
   otpInput: { textAlign: 'center', fontSize: 24, letterSpacing: 10, fontWeight: 'bold' },
   submitBtn: { backgroundColor: '#005BB5', padding: 16, borderRadius: 8, alignItems: 'center', marginTop: 10 }, submitText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 },
   toggleContainer: { marginTop: 25, alignItems: 'center', padding: 10 }, toggleText: { fontSize: 15, color: '#666666' }, toggleTextAction: { color: '#005BB5', fontWeight: 'bold' }

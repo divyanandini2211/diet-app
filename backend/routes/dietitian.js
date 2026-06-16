@@ -15,7 +15,8 @@ router.get('/templates', (req, res) => {
 // 📱 PAGE 1: Get list of all Patients
 router.get('/patients', async (req, res) => {
   try {
-    const patients = await User.find({ role: 'patient' }).select('-password');
+    // 🛑 THE ONLY FIX: Added isVerified: true so ghost users won't appear
+    const patients = await User.find({ role: 'patient', isVerified: true });
     res.json(patients);
   } catch (error) {
     res.status(500).json({ error: error.message });

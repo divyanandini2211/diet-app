@@ -78,6 +78,7 @@ export default function DietitianDashboard({ route, navigation }) {
       <TextInput
         style={styles.searchInput}
         placeholder="Search by name or OP/IP number..."
+        placeholderTextColor="#888888" 
         value={searchQuery}
         onChangeText={setSearchQuery}
       />
@@ -122,7 +123,8 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     fontSize: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0'
+    borderColor: '#E2E8F0',
+    color: '#000000' 
   },
   listContainer: { paddingHorizontal: 20 },
   card: {

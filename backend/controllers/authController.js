@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkey123'; 
 
+// HELPER: Send Email
 const sendOtpEmail = async (email, otp) => {
   const transporter = nodemailer.createTransport({
     service: 'gmail',
@@ -17,14 +18,22 @@ const sendOtpEmail = async (email, otp) => {
   });
 };
 
-// 1. FAST LOGIN (For switching between Patient and Dietitian easily)
+// 1. FAST LOGIN
 exports.login = async (req, res) => {
   try {
     const { phone, role, opId } = req.body;
     
-    const user = await User.findOne({ phone, role });
+    // Clean inputs just in case
+    const cleanPhone = phone ? phone.toString().trim() : '';
+
+    const user = await User.findOne({ phone: cleanPhone, role });
     if (!user) {
       return res.status(404).json({ message: 'User not found. Please sign up as a new user.' });
+    }
+
+    // 🛑 THE FIX: Block unverified ghost users!
+    if (!user.isVerified) {
+      return res.status(403).json({ message: 'Account not verified. Please sign up and enter your OTP.' });
     }
 
     if (role === 'patient' && user.opId !== opId) {
@@ -38,37 +47,54 @@ exports.login = async (req, res) => {
   }
 };
 
-// 2. REQUEST OTP (For Brand New Users ONLY)
+// 2. REQUEST OTP
 exports.requestOtp = async (req, res) => {
   try {
     const { email, phone, name, role, opId, height, weight } = req.body;
     
-    const existing = await User.findOne({ $or: [{ email }, { phone }] });
+    // Clean phone input
+    const cleanPhone = phone ? phone.toString().trim() : '';
+    const cleanEmail = email ? email.toString().trim().toLowerCase() : '';
+
+    const existing = await User.findOne({ $or: [{ email: cleanEmail }, { phone: cleanPhone }] });
     
-    // Protects existing users from being overwritten!
+    // Protects fully verified users from being overwritten
     if (existing && existing.isVerified) {
       return res.status(400).json({ message: 'Phone or Email is already registered. Please login.' });
     }
 
     const otp = Math.floor(1000 + Math.random() * 9000).toString();
     
+    // If user exists but IS NOT verified, update them with new OTP
     if (existing) {
       existing.otp = otp;
+      existing.name = name || existing.name;
+      existing.opId = opId || existing.opId;
       await existing.save();
     } else {
       const newUser = new User({
-        name, email, phone, role, opId, height, weight, otp, isVerified: false
+        name, 
+        email: cleanEmail, 
+        phone: cleanPhone, 
+        role, 
+        opId, 
+        height, 
+        weight, 
+        otp, 
+        isVerified: false
       });
       await newUser.save();
     }
     
     try {
-      await sendOtpEmail(email, otp);
+      await sendOtpEmail(cleanEmail, otp);
+      return res.status(200).json({ message: 'OTP sent to email!' });
     } catch (emailErr) {
       console.log("Email not sent:", emailErr.message);
+      // 🛑 FIX: If email fails, tell the frontend!
+      return res.status(500).json({ message: 'Failed to send email. Check email address and try again.' });
     }
 
-    res.status(200).json({ message: 'OTP sent to email!' });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }
@@ -79,23 +105,26 @@ exports.registerUser = async (req, res) => {
   try {
     const { phone, clientOtp } = req.body;
 
-    console.log(`Verifying OTP for Phone: ${phone}. User typed: ${clientOtp}`);
-
     if (!phone || !clientOtp) {
       return res.status(400).json({ message: 'Phone number and OTP are required.' });
     }
 
-    // Find the user by phone number
-    const user = await User.findOne({ phone: phone });
+    // 🛠️ BUG FIX: Clean the phone number of any accidental spaces!
+    const cleanPhone = phone.toString().trim();
+    const cleanOtp = clientOtp.toString().trim();
+    
+    console.log(`\n🔍 VERIFYING: phone='${cleanPhone}', otp='${cleanOtp}'`);
+
+    // Search using the clean phone number
+    const user = await User.findOne({ phone: cleanPhone });
 
     if (!user) {
-      console.log(`❌ User with phone ${phone} not found in database!`);
+      console.log(`❌ FAILED: Could not find phone '${cleanPhone}' in database!`);
       return res.status(404).json({ message: 'Account not found. Please request a new OTP.' });
     }
 
-    console.log(`Database OTP is: ${user.otp}`);
-
-    if (user.otp !== clientOtp) {
+    if (!user.otp || user.otp !== cleanOtp) {
+      console.log(`❌ FAILED: DB OTP is '${user.otp}', but user typed '${cleanOtp}'`);
       return res.status(400).json({ message: 'Invalid OTP. Please try again.' });
     }
 
@@ -103,6 +132,8 @@ exports.registerUser = async (req, res) => {
     user.isVerified = true;
     user.otp = ''; 
     await user.save();
+
+    console.log(`✅ SUCCESS: User ${user.name} is now verified!`);
 
     const token = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET);
     res.status(201).json({ message: 'Account created successfully!', user, token });
