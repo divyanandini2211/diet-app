@@ -6,6 +6,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkey123';
 
 // 📧 BREVO API SETUP
 const sendOtpEmail = async (email, otp) => {
+  console.log("DEBUG: EMAIL_PASS is:", process.env.EMAIL_PASS ? "FOUND" : "MISSING (UNDEFINED)");
   try {
     let apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
     let apiKey = apiInstance.authentications['apiKey'];
