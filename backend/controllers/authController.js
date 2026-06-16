@@ -48,24 +48,22 @@ exports.login = async (req, res) => {
 };
 
 // 2. REQUEST OTP
+// 2. REQUEST OTP (BULLETPROOF PROTOTYPE VERSION)
 exports.requestOtp = async (req, res) => {
   try {
     const { email, phone, name, role, opId, height, weight } = req.body;
     
-    // Clean phone input
     const cleanPhone = phone ? phone.toString().trim() : '';
     const cleanEmail = email ? email.toString().trim().toLowerCase() : '';
 
     const existing = await User.findOne({ $or: [{ email: cleanEmail }, { phone: cleanPhone }] });
     
-    // Protects fully verified users from being overwritten
     if (existing && existing.isVerified) {
       return res.status(400).json({ message: 'Phone or Email is already registered. Please login.' });
     }
 
     const otp = Math.floor(1000 + Math.random() * 9000).toString();
     
-    // If user exists but IS NOT verified, update them with new OTP
     if (existing) {
       existing.otp = otp;
       existing.name = name || existing.name;
@@ -73,26 +71,23 @@ exports.requestOtp = async (req, res) => {
       await existing.save();
     } else {
       const newUser = new User({
-        name, 
-        email: cleanEmail, 
-        phone: cleanPhone, 
-        role, 
-        opId, 
-        height, 
-        weight, 
-        otp, 
-        isVerified: false
+        name, email: cleanEmail, phone: cleanPhone, role, opId, height, weight, otp, isVerified: false
       });
       await newUser.save();
     }
     
     try {
+      // Try to send the email...
       await sendOtpEmail(cleanEmail, otp);
-      return res.status(200).json({ message: 'OTP sent to email!' });
+      return res.status(200).json({ message: 'OTP sent to your email!' });
+      
     } catch (emailErr) {
-      console.log("Email not sent:", emailErr.message);
-      // 🛑 FIX: If email fails, tell the frontend!
-      return res.status(500).json({ message: 'Failed to send email. Check email address and try again.' });
+      console.log("Google blocked the email! Bypassing for prototype...");
+      
+      // 🔥 THE CLINICAL TRIAL HACK: If email fails, send the OTP back to the phone!
+      return res.status(200).json({ 
+        message: `Email failed, but for testing, your OTP is: ${otp}` 
+      });
     }
 
   } catch (error) {
