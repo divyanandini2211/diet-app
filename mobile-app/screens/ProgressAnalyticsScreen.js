@@ -97,32 +97,45 @@
 
     const getWeeklyChartData = () => {
 
-        const dates = Object.keys(progressData)
-        .sort()
-        .slice(selectedDuration === 'weekly' ? -7 : -30);
+        const dates = [];
 
-        return dates.map(date => {
+        // Last 7 calendar days
+        for (let i = 6; i >= 0; i--) {
 
-        const metricData =
-            progressData[date]?.[selectedMetric];
+            const d = new Date();
 
-        return {
+            d.setDate(d.getDate() - i);
 
-            value: Math.min(
-            metricData?.actualPercentage || 0,
-            100
-            ),
+            const formattedDate =
+                d.toISOString().split('T')[0];
 
-            label:
-            `${date.slice(8,10)}/${date.slice(5,7)}`,
+            dates.push(formattedDate);
+        }
 
-            actualPercentage:
-            metricData?.actualPercentage || 0,
+        const chartData = dates.map(date => {
 
-            date
-        };
+            const metricData =
+                progressData[date]?.[selectedMetric];
+
+            return {
+
+                value: Math.min(
+                    metricData?.actualPercentage || 0,
+                    100
+                ),
+
+                label:`${date.slice(8,10)}/${date.slice(5,7)}`,
+
+                actualPercentage:
+                    metricData?.actualPercentage || 0,
+
+                date
+            };
         });
+
+        return chartData;
     };
+    
     const getHeatmapData = () => {
 
         const today = new Date();
@@ -488,15 +501,14 @@
                 selectedDuration
                 }
                 data={getWeeklyChartData()}
-                barWidth={22}
-                spacing={26}
+                barWidth={24}
+                spacing={18}
                 height={220}
-                disableScroll
-                initialSpacing={30}
-                endSpacing={30}
+                initialSpacing={0}
+                endSpacing={0}
+                disableScroll ={true}
                 noOfSections={5}
                 stepValue={20}
-                hideRules
                 xAxisThickness={0}
                 yAxisThickness={0}
                 yAxisTextStyle={{
@@ -505,7 +517,7 @@
                 }}
                 xAxisLabelTextStyle={{
                 color: '#64748B',
-                fontSize: 10
+                fontSize: 11
                 }}
                 maxValue={100}
                 frontColor="#159A8C"
@@ -515,21 +527,21 @@
 
                 onPress={(item, index) => {
 
-                setSelectedPoint(item);
+                    setSelectedPoint(item);
 
-                setTooltipPos({
-                    x: 20 + (index * 48),
-                    y: 15
-                });
+                    setTooltipPos({
+                        x: Math.max(10, index * 42),
+                        y: 15
+                    });
 
-                clearTimeout(global.tooltipTimer);
+                    clearTimeout(global.tooltipTimer);
 
-                global.tooltipTimer =
-                    setTimeout(() => {
+                    global.tooltipTimer =
+                        setTimeout(() => {
 
-                    setSelectedPoint(null);
+                            setSelectedPoint(null);
 
-                    }, 1800);
+                        }, 1800);
                 }}
             />
             )}
