@@ -4,18 +4,20 @@ const jwt = require('jsonwebtoken');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkey123'; 
 
-// 📧 REAL EMAIL SETUP
+// 📧 BREVO SMTP SETUP (The only way to avoid Render timeouts!)
 const sendOtpEmail = async (email, otp) => {
   const transporter = nodemailer.createTransport({
-    service: 'gmail',
+    host: 'smtp-relay.brevo.com',
+    port: 587,
+    secure: false, // Must be false for port 587
     auth: { 
-      user: process.env.EMAIL_USER, 
-      pass: process.env.EMAIL_PASS 
+      user: process.env.EMAIL_USER, // Your Brevo Login Email
+      pass: process.env.EMAIL_PASS  // Your Brevo SMTP Key
     }
   });
   
   await transporter.sendMail({
-    from: process.env.EMAIL_USER,
+    from: process.env.EMAIL_USER, // Sender must be verified in Brevo
     to: email,
     subject: 'Your OncoDiet OTP Code',
     text: `Your registration OTP is: ${otp}. Welcome to OncoDiet!`
@@ -27,7 +29,6 @@ exports.login = async (req, res) => {
   try {
     const { phone, role, opId } = req.body;
     
-    // Clean inputs to prevent invisible space bugs
     const cleanPhone = phone ? phone.toString().trim() : '';
 
     const user = await User.findOne({ phone: cleanPhone, role });
@@ -51,7 +52,7 @@ exports.login = async (req, res) => {
   }
 };
 
-// 2. 📨 REQUEST OTP (REAL SECURITY)
+// 2. 📨 REQUEST OTP (REAL SECURITY + BREVO)
 exports.requestOtp = async (req, res) => {
   try {
     const { email, phone, name, role, opId, height, weight } = req.body;
@@ -61,12 +62,10 @@ exports.requestOtp = async (req, res) => {
 
     const existing = await User.findOne({ $or: [{ email: cleanEmail }, { phone: cleanPhone }] });
     
-    // If user is already fully registered and verified, tell them to just log in
     if (existing && existing.isVerified) {
       return res.status(400).json({ message: 'Phone or Email is already registered. Please login.' });
     }
 
-    // Generate strict 4-digit OTP
     const otp = Math.floor(1000 + Math.random() * 9000).toString();
     
     let isNewUser = false;
@@ -87,26 +86,24 @@ exports.requestOtp = async (req, res) => {
         height, 
         weight, 
         otp, 
-        isVerified: false // ⏳ Puts them in the "Waiting Room"
+        isVerified: false 
       });
       await newUser.save();
     }
     
     try {
-      // 🚀 SEND THE REAL EMAIL
       await sendOtpEmail(cleanEmail, otp);
       return res.status(200).json({ message: 'OTP successfully sent to your email!' });
       
     } catch (emailErr) {
       console.log("Nodemailer failed:", emailErr.message);
       
-      // 🧹 GHOST CLEANUP: If Google fails to send the email, delete the unverified user!
       if (isNewUser) {
         await User.findOneAndDelete({ email: cleanEmail });
         console.log("Deleted ghost user because email failed to send.");
       }
       
-      return res.status(500).json({ message: 'Failed to send OTP email. Please check your email address and try again.' });
+      return res.status(500).json({ message: 'Failed to send OTP email. Check SMTP settings.' });
     }
 
   } catch (error) {
@@ -123,7 +120,6 @@ exports.registerUser = async (req, res) => {
       return res.status(400).json({ message: 'Phone number and OTP are required.' });
     }
 
-    // Clean inputs
     const cleanPhone = phone.toString().trim();
     const cleanOtp = clientOtp.toString().trim();
 
@@ -137,7 +133,6 @@ exports.registerUser = async (req, res) => {
       return res.status(400).json({ message: 'Invalid OTP. Please try again.' });
     }
 
-    // 🏆 SUCCESS! Mark as verified and erase the OTP so hackers can't reuse it
     user.isVerified = true;
     user.otp = ''; 
     await user.save();
