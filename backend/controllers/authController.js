@@ -9,21 +9,20 @@ const sendOtpEmail = async (email, otp) => {
   const transporter = nodemailer.createTransport({
     host: 'smtp-relay.brevo.com',
     port: 587,
-    secure: false, // Must be false for port 587
+    secure: false,
     auth: { 
-      user: process.env.EMAIL_USER, // Your Brevo Login Email
-      pass: process.env.EMAIL_PASS  // Your Brevo SMTP Key
+      user: 'send22divya@gmail.com', // Your actual Brevo Login email
+      pass: process.env.EMAIL_PASS   // Your SMTP Key (with the hyphen!)
     }
   });
   
   await transporter.sendMail({
-    from: process.env.EMAIL_USER, // Sender must be verified in Brevo
+    from: 'send22divya@gmail.com',   // Must be the email you verified in Brevo
     to: email,
     subject: 'Your OncoDiet OTP Code',
     text: `Your registration OTP is: ${otp}. Welcome to OncoDiet!`
   });
 };
-
 // 1. 🚀 FAST LOGIN
 exports.login = async (req, res) => {
   try {
