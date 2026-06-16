@@ -4,19 +4,26 @@ const SibApiV3Sdk = require('@getbrevo/brevo');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkey123'; 
 
-// 📧 BREVO API SETUP (Instant & Reliable)
+// 📧 BREVO API SETUP
 const sendOtpEmail = async (email, otp) => {
-  let apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
-  let apiKey = apiInstance.authentications['apiKey'];
-  apiKey.apiKey = process.env.EMAIL_PASS; // Your Brevo API Key
+  try {
+    let apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
+    let apiKey = apiInstance.authentications['apiKey'];
+    apiKey.apiKey = process.env.EMAIL_PASS; // Render Variable
 
-  let sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
-  sendSmtpEmail.subject = "Your OncoDiet OTP Code";
-  sendSmtpEmail.htmlContent = `<html><body><p>Your registration OTP is: <strong>${otp}</strong></p></body></html>`;
-  sendSmtpEmail.sender = { "name": "OncoDiet", "email": "send22divya@gmail.com" }; // Must be a verified sender in Brevo
-  sendSmtpEmail.to = [{ "email": email }];
+    let sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
+    sendSmtpEmail.subject = "Your OncoDiet OTP Code";
+    sendSmtpEmail.htmlContent = `<html><body><p>Your registration OTP is: <strong>${otp}</strong></p></body></html>`;
+    sendSmtpEmail.sender = { "name": "OncoDiet", "email": "send22divya@gmail.com" }; // Must be a verified sender in Brevo
+    sendSmtpEmail.to = [{ "email": email }];
 
-  return await apiInstance.sendTransEmail(sendSmtpEmail);
+    await apiInstance.sendTransEmail(sendSmtpEmail);
+    console.log(`✅ Email successfully sent to ${email}`);
+  } catch (error) {
+    // 🔥 THIS LOG IS KEY: Check this in Render Logs if email fails
+    console.error("❌ BREVO API ERROR:", JSON.stringify(error.response?.body, null, 2));
+    throw error;
+  }
 };
 
 // 1. 🚀 FAST LOGIN
@@ -39,7 +46,7 @@ exports.login = async (req, res) => {
   }
 };
 
-// 2. 📨 REQUEST OTP (NON-BLOCKING FAST VERSION)
+// 2. 📨 REQUEST OTP (FAST & SECURE)
 exports.requestOtp = async (req, res) => {
   try {
     const { email, phone, name, role, opId, height, weight } = req.body;
@@ -47,28 +54,34 @@ exports.requestOtp = async (req, res) => {
     const cleanEmail = email ? email.toString().trim().toLowerCase() : '';
 
     const existing = await User.findOne({ $or: [{ email: cleanEmail }, { phone: cleanPhone }] });
-    if (existing && existing.isVerified) return res.status(400).json({ message: 'Already registered. Please login.' });
+    if (existing && existing.isVerified) return res.status(400).json({ message: 'Already registered.' });
 
     const otp = Math.floor(1000 + Math.random() * 9000).toString();
     
-    let isNewUser = !existing;
-    const user = existing || new User({ name, email: cleanEmail, phone: cleanPhone, role, opId, height, weight, otp, isVerified: false });
-    
+    // Save to DB first
+    let user;
     if (existing) {
-        user.otp = otp;
-        user.name = name || user.name;
+      user = existing;
+      user.otp = otp;
+      user.name = name || user.name;
+    } else {
+      user = new User({ name, email: cleanEmail, phone: cleanPhone, role, opId, height, weight, otp, isVerified: false });
     }
     await user.save();
+    console.log(`✅ User saved/updated in DB: ${cleanPhone}`);
     
-    // 🔥 INSTANT RESPONSE: We don't wait for the email to finish sending!
-    sendOtpEmail(cleanEmail, otp).catch(async (err) => {
-        console.error("Brevo API Error:", err);
-        if (isNewUser) await User.findOneAndDelete({ email: cleanEmail });
-    });
-
-    return res.status(200).json({ message: 'OTP sent! Please check your email.' });
+    // Attempt Email
+    try {
+      await sendOtpEmail(cleanEmail, otp);
+      return res.status(200).json({ message: 'OTP sent! Please check your email.' });
+    } catch (emailErr) {
+      // If email fails, delete the user so they aren't stuck in "isVerified: false"
+      await User.findOneAndDelete({ phone: cleanPhone });
+      return res.status(500).json({ message: 'Failed to send email. Check logs.' });
+    }
 
   } catch (error) {
+    console.error("REQUEST OTP ERROR:", error);
     res.status(500).json({ message: 'Server error' });
   }
 };
