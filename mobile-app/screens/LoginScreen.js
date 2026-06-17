@@ -17,7 +17,7 @@ export default function LoginScreen({ navigation }) {
   const [otpSent, setOtpSent] = useState(false);
   const [userOtp, setUserOtp] = useState('');
   
-  // 🔥 NEW: Loading state to prevent 10 clicks!
+  // ⚡ Loading state to prevent duplicate clicks
   const [isSendingOtp, setIsSendingOtp] = useState(false);
 
   const API_URL = `${process.env.EXPO_PUBLIC_API_URL}/api/auth`;
@@ -49,10 +49,10 @@ export default function LoginScreen({ navigation }) {
       if (userData.role === 'dietitian') navigation.replace('DietitianDashboard', { user: userData });
       else navigation.replace('PatientNavigation', { user: userData });
     } catch (error) {
-      // 🛑 FRONTEND FIX: Handle the Unverified Ghost User!
+      // Handle the Unverified Ghost User!
       if (error.response?.status === 403) {
         Alert.alert("Not Verified", "You haven't verified your account yet. Please sign up to receive your OTP.");
-        setIsLogin(false); // Magically switch them to the Sign Up screen!
+        setIsLogin(false); // Switch to Sign Up screen
       } else {
         Alert.alert("Login Failed", error.response?.data?.message || "User not found.");
       }
@@ -64,20 +64,25 @@ export default function LoginScreen({ navigation }) {
     if (role === 'patient' && !opId) return Alert.alert("Missing Info", "Please enter your OP / IP Number.");
 
     try {
-      setIsSendingOtp(true); // 🔥 Disable button and show "Sending..."
+      setIsSendingOtp(true); // Disable button and show loading text
 
       const res = await axios.post(`${API_URL}/request-otp`, { 
         name, email, phone, role, opId, height, weight 
       });
       
       setOtpSent(true);
-      // 🔥 Show the exact message from the backend!
-      Alert.alert("Notice", res.data.message); 
+      
+      // 🏆 SHOW THE TEST OTP IN A POPUP IMMEDIATELY
+      if (res.data.testOtp) {
+        Alert.alert("Prototype Mode", `Your Test OTP is: ${res.data.testOtp}`);
+      } else {
+        Alert.alert("Notice", res.data.message || "OTP Sent!");
+      }
       
     } catch (error) {
       Alert.alert("Error", error.response?.data?.message || "Could not send OTP.");
     } finally {
-      setIsSendingOtp(false); // 🔥 Re-enable the button
+      setIsSendingOtp(false); // Re-enable button
     }
   };
 
@@ -201,7 +206,6 @@ export default function LoginScreen({ navigation }) {
                   </>
                 )}
 
-                {/* 🔥 NEW: Button that turns Gray and disables when loading */}
                 <TouchableOpacity 
                   style={[styles.submitBtn, isSendingOtp && { backgroundColor: '#888888' }]} 
                   onPress={isLogin ? handleFastLogin : handleRequestOtp}
