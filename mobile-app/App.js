@@ -10,6 +10,7 @@ import PatientProfileScreen from './screens/PatientProfileScreen';
 import DietitianProfileScreen from './screens/DietitianProfileScreen';
 import PatientDietView from './screens/PatientDietView';
 import DietDetailScreen from './screens/DietDetailScreen';
+import ChatScreen from './screens/ChatScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -28,6 +29,7 @@ export default function App() {
         <Stack.Screen name="DietitianProfile" component={DietitianProfileScreen} />
         <Stack.Screen name="PatientDietView" component={PatientDietView} />
         <Stack.Screen name="DietDetail" component={DietDetailScreen} />
+        <Stack.Screen name="Chat" component={ChatScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

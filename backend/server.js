@@ -12,9 +12,11 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(cors());
 const authRoutes = require('./routes/auth');
 const dietitianRoutes = require('./routes/dietitian'); // <-- Add this
-const patientRoutes = require('./routes/patient'); // <-- Add this
+const patientRoutes = require('./routes/patient'); // <-- Add
+const chatRoutes = require('./routes/chat'); 
 app.use('/api/auth', authRoutes);
 app.use('/api/dietitian', dietitianRoutes); // <-- Add this
+app.use('/api/chat', chatRoutes); // <-- Add
 
 // IMPORT FILES DIRECTLY TO SEE REAL ERRORS
 const DietPlan = require('./models/DietPlan');
