@@ -11,6 +11,7 @@ import DietitianProfileScreen from './screens/DietitianProfileScreen';
 import PatientDietView from './screens/PatientDietView';
 import DietDetailScreen from './screens/DietDetailScreen';
 import ChatScreen from './screens/ChatScreen';
+import DietitianNavigation from './screens/DietitianNavigation'; // Adjust path if needed
 
 const Stack = createNativeStackNavigator();
 
@@ -30,6 +31,7 @@ export default function App() {
         <Stack.Screen name="PatientDietView" component={PatientDietView} />
         <Stack.Screen name="DietDetail" component={DietDetailScreen} />
         <Stack.Screen name="Chat" component={ChatScreen} />
+        <Stack.Screen name="DietitianNavigation" component={DietitianNavigation} options={{ headerShown: false }} />
       </Stack.Navigator>
     </NavigationContainer>
   );

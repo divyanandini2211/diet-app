@@ -44,7 +44,8 @@ export default function LoginScreen({ navigation }) {
       if (savedUser) {
         const parsedUser = JSON.parse(savedUser);
         if (parsedUser.role === 'dietitian') {
-          navigation.replace('DietitianDashboard', { user: parsedUser });
+          // ✅ REDIRECT TO THE TAB NAVIGATOR
+          navigation.replace('DietitianNavigation', { user: parsedUser });
         } else {
           navigation.replace('PatientNavigation', { user: parsedUser });
         }
@@ -64,7 +65,8 @@ export default function LoginScreen({ navigation }) {
       await AsyncStorage.setItem('userData', JSON.stringify(userData)); 
 
       if (userData.role === 'dietitian') {
-        navigation.replace('DietitianDashboard', { user: userData });
+        // ✅ REDIRECT TO THE TAB NAVIGATOR
+        navigation.replace('DietitianNavigation', { user: userData });
       } else {
         navigation.replace('PatientNavigation', { user: userData });
       }
@@ -122,7 +124,8 @@ export default function LoginScreen({ navigation }) {
 
       Alert.alert("Success", "Account created successfully!");
       if (userData.role === 'dietitian') {
-        navigation.replace('DietitianDashboard', { user: userData });
+        // ✅ REDIRECT TO THE TAB NAVIGATOR
+        navigation.replace('DietitianNavigation', { user: userData });
       } else {
         navigation.replace('PatientNavigation', { user: userData });
       }

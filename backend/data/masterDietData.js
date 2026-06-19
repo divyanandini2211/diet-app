@@ -67,13 +67,13 @@ const dietTemplates = {
     avoidables: "Solid foods, Unstrained liquids",
     sessions: [
       { sessionName: "Early Morning", time: "6:00 AM", items: [{ name: "Almond milk", quantity: "200 ml" }]},
-      { sessionName: "Breakfast", time: "8:00 AM", items: [{ name: "Health mix porridge / HCCM", quantity: "250 ml" }]},
+      { sessionName: "Breakfast", time: "8:00 AM", items: [{ name: "Health mix porridge / HCCM", quantity: "200 ml" }]},
       { sessionName: "Mid-Morning", time: "10:00 AM", items: [{ name: "Egg blend", quantity: "200 ml" }]},
-      { sessionName: "Lunch", time: "12:30 PM", items: [{ name: "Health mix porridge / HCCM", quantity: "300 ml" }]},
+      { sessionName: "Lunch", time: "12:30 PM", items: [{ name: "Health mix porridge / HCCM", quantity: "200 ml" }]},
       { sessionName: "Mid-Afternoon", time: "2:00 PM", items: [{ name: "Paneer blend", quantity: "200 ml" }]},
       { sessionName: "Evening", time: "4:00 PM", items: [{ name: "Egg blend", quantity: "200 ml" }]},
       { sessionName: "Evening 2", time: "6:00 PM", items: [{ name: "Paneer blend", quantity: "200 ml" }]},
-      { sessionName: "Night", time: "8:00 PM", items: [{ name: "Health mix porridge / HCCM", quantity: "250 ml" }]},
+      { sessionName: "Night", time: "8:00 PM", items: [{ name: "Health mix porridge / HCCM", quantity: "200 ml" }]},
       { sessionName: "Late Night", time: "9:00 PM", items: [{ name: "Almond milk", quantity: "200 ml" }]}
     ]
   },
